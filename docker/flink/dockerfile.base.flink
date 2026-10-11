@@ -1,0 +1,27 @@
+FROM flink:1.17-scala_2.12-java8
+
+USER root
+
+ENV HADOOP_VERSION=3.2.1 \
+    HADOOP_HOME=/opt/hadoop \
+    HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop \
+    HIVE_CONF_DIR=/opt/hive/conf
+ENV PATH=$PATH:$HADOOP_HOME/bin
+
+RUN curl -fsSL https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz \
+    | tar -xz -C /opt \
+    && mv /opt/hadoop-${HADOOP_VERSION} ${HADOOP_HOME} \
+    && rm -rf ${HADOOP_HOME}/share/doc
+
+RUN mkdir -p /opt/jars \
+ && curl -fSL -o /opt/jars/flink-sql-connector-hive-3.1.3_2.12-1.17.0.jar \
+    https://repo.maven.apache.org/maven2/org/apache/flink/flink-sql-connector-hive-3.1.3_2.12/1.17.0/flink-sql-connector-hive-3.1.3_2.12-1.17.0.jar \
+ && curl -fSL -o /opt/jars/flink-sql-connector-kafka-3.0.2-1.17.jar \
+    https://repo.maven.apache.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.0.2-1.17/flink-sql-connector-kafka-3.0.2-1.17.jar \
+ && chmod 644 /opt/jars/*
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["sleep", "infinity"]

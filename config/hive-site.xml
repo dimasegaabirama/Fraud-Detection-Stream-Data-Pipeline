@@ -1,0 +1,68 @@
+<configuration>
+
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>/user/hive/warehouse</value>
+    </property>
+
+    <property>
+        <name>hive.metastore.uris</name>
+        <value>thrift://${env.HIVE__HOSTNAME}:${env.HIVE__METASTORE_PORT}</value>
+    </property>
+
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:postgresql://${env.HIVE__POSTGRES_HOST}:${env.HIVE__POSTGRES_PORT}/${env.HIVE__POSTGRES_DB}</value>
+    </property>
+
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>org.postgresql.Driver</value>
+    </property>
+
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>${env.HIVE__POSTGRES_USER}</value>
+    </property>
+
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>${env.HIVE__POSTGRES_PASSWORD}</value>
+    </property>
+
+    <property>
+        <name>hive.execution.engine</name>
+        <value>mr</value>
+    </property>
+
+    <property>
+        <name>hive.server2.thrift.bind.host</name>
+        <value>0.0.0.0</value>
+    </property>
+
+    <property>
+        <name>hive.server2.thrift.port</name>
+        <value>${env.HIVE__SERVER_PORT}</value>
+    </property>
+
+    <property>
+        <name>hive.server2.webui.host</name>
+        <value>0.0.0.0</value>
+    </property>
+
+    <property>
+        <name>hive.server2.webui.port</name>
+        <value>${env.HIVE__WEBUI_PORT}</value>
+    </property>
+
+    <property>
+        <name>hive.exec.scratchdir</name>
+        <value>/tmp/hive</value>
+    </property>
+
+    <property>
+        <name>hive.exec.local.scratchdir</name>
+        <value>/tmp/hive</value>
+    </property>
+
+</configuration>

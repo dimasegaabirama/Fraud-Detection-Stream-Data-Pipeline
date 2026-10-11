@@ -1,0 +1,68 @@
+services:
+  hive-postgres:
+    image: postgres:16
+    container_name: hive-postgres
+    hostname: hive-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${HIVE__POSTGRES_DB}
+      POSTGRES_USER: ${HIVE__POSTGRES_USER}
+      POSTGRES_PASSWORD: ${HIVE__POSTGRES_PASSWORD}
+    ports:
+      - '5432:5432'
+    volumes:
+      - hive_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HIVE__POSTGRES_USER} -d ${HIVE__POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - hadoop_net
+
+  hive-server2:
+    build:
+      context: .
+      dockerfile: dockerfile.base.hive
+    container_name: hive-server2
+    hostname: hive-server2
+    restart: always
+    env_file:
+      - ${PROJECT_DIR}/.env
+    environment:
+      USER: hive
+      SERVICE_NAME: 'hiveserver2'
+    ports:
+      - '10000:10000'
+      - '10002:10002'
+    volumes:
+      - warehouse:/opt/hive/data/warehouse
+      - scratch:/opt/hive/scratch
+      - ${PROJECT_DIR}/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ${PROJECT_DIR}/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ${PROJECT_DIR}/config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml
+      - ${PROJECT_DIR}/config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml
+      - ${PROJECT_DIR}/config/hive-site.xml:/opt/hive/conf/hive-site.xml
+    depends_on:
+      hive-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/10000'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    networks:
+      - hadoop_net
+
+volumes:
+  warehouse:
+    driver: local
+  scratch:
+    driver: local
+  hive_postgres_data:
+    driver: local
+
+networks:
+  hadoop_net:
+    external: true

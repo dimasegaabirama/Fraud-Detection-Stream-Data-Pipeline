@@ -1,0 +1,134 @@
+x-datanode-base: &datanode-base
+  image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+  restart: always
+  env_file:
+    - ${PROJECT_DIR}/.env
+  networks:
+    - hadoop_net
+  depends_on:
+    namenode:
+      condition: service_healthy
+
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    hostname: namenode
+    restart: always
+    env_file:
+      - ${PROJECT_DIR}/.env
+    environment:
+      CLUSTER_NAME: dims_cluster
+    volumes:
+      - ${PROJECT_DIR}/config/core-site.xml:/etc/hadoop/core-site.xml
+      - ${PROJECT_DIR}/config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ${PROJECT_DIR}/config/mapred-site.xml:/etc/hadoop/mapred-site.xml
+      - ${PROJECT_DIR}/config/yarn-site.xml:/etc/hadoop/yarn-site.xml
+      - namenode-data:/opt/hadoop/data/namenode
+    ports:
+      - "9870:9870"
+      - "8020:8020"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870/"]
+      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hadoop_net
+
+  datanode-1:
+    <<: *datanode-base
+    container_name: datanode-1
+    hostname: datanode-1
+    volumes:
+      - ${PROJECT_DIR}/config/core-site.xml:/etc/hadoop/core-site.xml
+      - ${PROJECT_DIR}/config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ${PROJECT_DIR}/config/mapred-site.xml:/etc/hadoop/mapred-site.xml
+      - ${PROJECT_DIR}/config/yarn-site.xml:/etc/hadoop/yarn-site.xml
+      - datanode-1-data:/opt/hadoop/data/datanode
+
+  datanode-2:
+    <<: *datanode-base
+    container_name: datanode-2
+    hostname: datanode-2
+    volumes:
+      - ${PROJECT_DIR}/config/core-site.xml:/etc/hadoop/core-site.xml
+      - ${PROJECT_DIR}/config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ${PROJECT_DIR}/config/mapred-site.xml:/etc/hadoop/mapred-site.xml
+      - ${PROJECT_DIR}/config/yarn-site.xml:/etc/hadoop/yarn-site.xml
+      - datanode-2-data:/opt/hadoop/data/datanode
+
+  yarn-resourcemanager:
+    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+    container_name: resourcemanager
+    hostname: resourcemanager
+    restart: always
+    env_file:
+      - ${PROJECT_DIR}/.env
+    volumes:
+      - ${PROJECT_DIR}/config/core-site.xml:/etc/hadoop/core-site.xml
+      - ${PROJECT_DIR}/config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ${PROJECT_DIR}/config/mapred-site.xml:/etc/hadoop/mapred-site.xml
+      - ${PROJECT_DIR}/config/yarn-site.xml:/etc/hadoop/yarn-site.xml
+    ports:
+      - "8088:8088"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://resourcemanager:8088/"]
+      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      namenode:
+        condition: service_healthy
+    networks:
+      - hadoop_net
+
+  yarn-nodemanager-1:
+    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    container_name: nodemanager-1
+    hostname: nodemanager-1
+    restart: always
+    env_file:
+      - ${PROJECT_DIR}/.env
+    volumes:
+      - ${PROJECT_DIR}/config/core-site.xml:/etc/hadoop/core-site.xml
+      - ${PROJECT_DIR}/config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ${PROJECT_DIR}/config/mapred-site.xml:/etc/hadoop/mapred-site.xml
+      - ${PROJECT_DIR}/config/yarn-site.xml:/etc/hadoop/yarn-site.xml
+    depends_on:
+      yarn-resourcemanager:
+        condition: service_healthy
+    networks:
+      - hadoop_net
+
+  yarn-nodemanager-2:
+    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    container_name: nodemanager-2
+    hostname: nodemanager-2
+    restart: always
+    env_file:
+      - ${PROJECT_DIR}/.env
+    volumes:
+      - ${PROJECT_DIR}/config/core-site.xml:/etc/hadoop/core-site.xml
+      - ${PROJECT_DIR}/config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ${PROJECT_DIR}/config/mapred-site.xml:/etc/hadoop/mapred-site.xml
+      - ${PROJECT_DIR}/config/yarn-site.xml:/etc/hadoop/yarn-site.xml
+    depends_on:
+      yarn-resourcemanager:
+        condition: service_healthy
+    networks:
+      - hadoop_net
+
+volumes:
+  namenode-data:
+    driver: local
+  datanode-1-data:
+    driver: local
+  datanode-2-data:
+    driver: local
+
+networks:
+  hadoop_net:
+    external: true

@@ -1,0 +1,13 @@
+<configuration>
+
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://${env.HADOOP__HOSTNAME}:${env.HADOOP__PORT}</value>
+    </property>
+
+    <property>
+        <name>hadoop.tmp.dir</name>
+        <value>/opt/hadoop-${env.HADOOP__VERSION}/data/tmp</value>
+    </property>
+
+</configuration>
