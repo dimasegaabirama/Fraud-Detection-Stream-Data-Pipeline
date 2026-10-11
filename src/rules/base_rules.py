@@ -12,19 +12,15 @@ class BaseRules(ABC):
     """Base class for all rules."""
 
     @classmethod
-    def get_score(cls, segment: SegmentLevel, direction: DirectionLevel, value: float) -> FraudThreshold:
-
-        # low=(2000.0, 10.0),
-        # medium=(5000.0, 50.0),
-        # high=(10000.0, 80.0),
-
+    def get_score(cls, segment: SegmentLevel, direction: DirectionLevel, value: float) -> float:
         threshold = cls.get_thresholds(segment, direction)
-        if value >= threshold.low.threshold:
-            return threshold.low.score
+
+        if value >= threshold.high.threshold:
+            return threshold.high.score
         elif value >= threshold.medium.threshold:
             return threshold.medium.score
-        elif value >= threshold.high.threshold:
-            return threshold.high.score
+        elif value >= threshold.low.threshold:
+            return threshold.low.score
         else:
             return 0.0
         

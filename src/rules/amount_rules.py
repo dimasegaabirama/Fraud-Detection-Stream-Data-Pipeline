@@ -32,14 +32,14 @@ class AmountRules(BaseRules):
                     DirectionLevel.CREDIT,
                     low=(2000.0, 10.0),
                     medium=(5000.0, 50.0),
-                    high=(10000.0, 80.0),
+                    high=(10000.0, 80.0)
                 ),
                 self._rule(
                     s,
                     DirectionLevel.DEBIT,
                     low=(1500.0, 15.0),
                     medium=(4000.0, 60.0),
-                    high=(8000.0, 90.0),
+                    high=(8000.0, 90.0)
                 ),
             ]
         )
@@ -88,5 +88,7 @@ class AmountRules(BaseRules):
 
 if __name__ == "__main__":
 
-    rules = AmountRules()
-    print(rules.get_thresholds(SegmentLevel.BUSINESS, DirectionLevel.DEBIT))
+    rules = AmountRules
+
+    print(rules.get_thresholds(SegmentLevel.BUSINESS, DirectionLevel.CREDIT))
+    print(rules.get_score(SegmentLevel.BUSINESS, DirectionLevel.CREDIT, 10000.0))
