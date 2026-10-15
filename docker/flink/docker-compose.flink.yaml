@@ -14,8 +14,6 @@ services:
           taskmanager.numberOfTaskSlots: 2
           parallelism.default: 4
           state.backend: rocksdb
-          execution.checkpoints.dir: ${FLINK_HDFS_BASE}/checkpoints
-          execution.checkpointing.savepoint-dir: ${FLINK_HDFS_BASE}/savepoints
           execution.checkpointing.interval: 60s
           yarn.provided.lib.dirs: hdfs://${FLINK_HDFS_BASE}/lib;hdfs://${FLINK_HDFS_BASE}/plugins
     volumes:

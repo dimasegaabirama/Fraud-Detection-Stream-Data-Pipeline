@@ -1,82 +1,51 @@
-from src.domain.enums import DirectionLevel, SegmentLevel
-from src.models.rules import DeviceRule, DeviceRulesConfig, DeviceSegmentDirectionRule
-from src.models.threshold import FraudThreshold, Threshold
-
+from src.domain.enums import Direction, Segment, TransactionType
 from src.rules.base_rules import BaseRules
+from src.models.threshold import FraudThreshold, LevelThreshold
 
 class DeviceRules(BaseRules):
 
-    def segment_business_threshold(self) -> DeviceRulesConfig:
-        s = SegmentLevel.BUSINESS
-        return DeviceRulesConfig(
-            rules=[
-                self._rule(
-                    s,
-                    DirectionLevel.CREDIT,
-                    low=(10, 10.0),
-                    medium=(11, 50.0),
-                    high=(16, 80.0),
-                ),
-                self._rule(
-                    s,
-                    DirectionLevel.DEBIT,
-                    low=(8, 15.0),
-                    medium=(9, 60.0),
-                    high=(13, 90.0),
-                ),
-            ]
-        )
+    DEVICE_RULES = FraudThreshold(
+      low=LevelThreshold(value=1.0, score=10),
+      medium=LevelThreshold(value=3.0, score=50),
+      high=LevelThreshold(value=5.0, score=80),
+    )
 
-    def segment_retail_threshold(self) -> DeviceRulesConfig:
-        s = SegmentLevel.RETAIL
-        return DeviceRulesConfig(
-            rules=[
-                self._rule(
-                    s,
-                    DirectionLevel.CREDIT,
-                    low=(6, 10.0),
-                    medium=(7, 50.0),
-                    high=(11, 80.0),
-                ),
-                self._rule(
-                    s,
-                    DirectionLevel.DEBIT,
-                    low=(4, 15.0),
-                    medium=(5, 60.0),
-                    high=(8, 90.0),
-                ),
-            ]
-        )
+    DIRECTION_FACTOR = {
+        Direction.CREDIT: 1.0,
+        Direction.DEBIT: 1.2
+    }
 
-    def segment_individual_threshold(self) -> DeviceRulesConfig:
-        s = SegmentLevel.INDIVIDUAL
-        return DeviceRulesConfig(
-            rules=[
-                self._rule(
-                    s,
-                    DirectionLevel.CREDIT,
-                    low=(4, 10.0),
-                    medium=(5, 50.0),
-                    high=(8, 80.0),
-                ),
-                self._rule(
-                    s,
-                    DirectionLevel.DEBIT,
-                    low=(3, 15.0),
-                    medium=(4, 60.0),
-                    high=(6, 90.0),
-                ),
-            ]
+    SEGMENT_FACTOR = {
+        Segment.BUSINESS: 1.0,
+        Segment.INDIVIDUAL: 1.0,
+        Segment.RETAIL: 1.0
+    }
+
+    TRANSACTION_TYPE_FACTOR = {
+        TransactionType.CASHOUT: 1.0,
+        TransactionType.PAYMENT: 1.0,
+        TransactionType.REFUND: 0.8,
+        TransactionType.TOP_UP: 1.0,
+        TransactionType.TRANSFER: 1.0,
+        TransactionType.WITHDRAWAL: 1.0
+    }
+
+    def get_thresholds(self, segment: Segment, direction: Direction, transaction_type: TransactionType) -> FraudThreshold:
+        base_threshold = self.DEVICE_RULES
+
+        direction_factor = self.DIRECTION_FACTOR.get(direction, 1.0)
+        segment_factor = self.SEGMENT_FACTOR.get(segment, 1.0)
+        transaction_type_factor = self.TRANSACTION_TYPE_FACTOR.get(transaction_type, 1.0)
+
+        adjusted_low = base_threshold.low.value * direction_factor * segment_factor * transaction_type_factor
+        adjusted_medium = base_threshold.medium.value * direction_factor * segment_factor * transaction_type_factor
+        adjusted_high = base_threshold.high.value * direction_factor * segment_factor * transaction_type_factor
+
+        return FraudThreshold(
+            low=LevelThreshold(value=adjusted_low, score=base_threshold.low.score),
+            medium=LevelThreshold(value=adjusted_medium, score=base_threshold.medium.score),
+            high=LevelThreshold(value=adjusted_high, score=base_threshold.high.score),
         )
 
 if __name__ == "__main__":
-    device_rules = DeviceRules()
-    business_rules = device_rules.segment_business_threshold()
-    retail_rules = device_rules.segment_retail_threshold()
-    individual_rules = device_rules.segment_individual_threshold()
-
-    print("Business Rules:", business_rules)
-    print("\n")
-    print("Retail Rules:", retail_rules)
-    print("\n")
-    print("Individual Rules:", individual_rules)
+    pass

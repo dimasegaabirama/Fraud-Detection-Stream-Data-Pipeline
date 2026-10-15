@@ -1,38 +1,55 @@
 from enum import Enum
 
+
 class ThresholdLevel(str, Enum):
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
 
-class SegmentLevel(str, Enum):
-    RETAIL = "retail"
-    BUSINESS = "business"
-    INDIVIDUAL = "individual"
 
-class DirectionLevel(str, Enum):
-    DEBIT = "debit"
-    CREDIT = "credit"
+class Segment(str, Enum):
+    RETAIL = "RETAIL"
+    BUSINESS = "BUSINESS"
+    INDIVIDUAL = "INDIVIDUAL"
 
-class StatusLevel(str, Enum):
-    SUCCESS = "success"
-    FAILED = "failed"
-    RESERVED = "reserved"
+
+class Direction(str, Enum):
+    DEBIT = "DEBIT"
+    CREDIT = "CREDIT"
+
+
+class TransactionStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    RESERVED = "RESERVED"
+
+
+class TransactionType(str, Enum):
+    TRANSFER = "TRANSFER"
+    PAYMENT = "PAYMENT"
+    CASHOUT = "CASHOUT"
+    TOP_UP = "TOP_UP"
+    WITHDRAWAL = "WITHDRAWAL"
+    REFUND = "REFUND"
+
 
 class FraudStatus(str, Enum):
-    NORMAL = "normal"
-    REVIEW = "review"
-    FRAUD = "fraud"
-    
+    NORMAL = "NORMAL"
+    REVIEW = "REVIEW"
+    FRAUD = "FRAUD"
+
+
 class DeviceType(str, Enum):
-    IOS = "ios"
-    ANDROID = "android"
-    WEB = "web"
+    IOS = "IOS"
+    ANDROID = "ANDROID"
+    WEB = "WEB"
+
 
 class IPType(str, Enum):
-    IPV4 = "ipv4"
-    IPV6 = "ipv6"
+    IPV4 = "IPV4"
+    IPV6 = "IPV6"
+
 
 class JobMode(str, Enum):
-    STREAMING = "streaming"
-    BATCH = "batch"
+    STREAMING = "STREAMING"
+    BATCH = "BATCH"

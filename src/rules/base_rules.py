@@ -1,81 +1,29 @@
-from abc import ABC
-from src.config.settings import AppSettings
-from src.models.threshold import FraudThreshold, Threshold
-from src.domain.enums import SegmentLevel, DirectionLevel
-from src.models.rules import (
-    BaseRule,
-    BaseSegmentDirectionRule,
-    BaseRulesConfig
-)
+from abc import ABC, abstractmethod
+from typing_extensions import Dict, Tuple
+
+from src.domain.enums import Direction, Segment, TransactionType
+from src.models.threshold import FraudThreshold
+
 
 class BaseRules(ABC):
-    """Base class for all rules."""
 
-    @classmethod
-    def get_score(cls, segment: SegmentLevel, direction: DirectionLevel, value: float) -> float:
-        threshold = cls.get_thresholds(segment, direction)
+    def get_score(self, segment: Segment, direction: Direction, transaction_type: TransactionType, value: float) -> float:
+        threshold = self.get_thresholds(segment, direction, transaction_type)
 
-        if value >= threshold.high.threshold:
+        if value >= threshold.high.value:
             return threshold.high.score
-        elif value >= threshold.medium.threshold:
+        elif value >= threshold.medium.value:
             return threshold.medium.score
-        elif value >= threshold.low.threshold:
+        elif value >= threshold.low.value:
             return threshold.low.score
         else:
             return 0.0
-        
 
-    @classmethod
-    def get_thresholds(cls, segment: SegmentLevel, direction: DirectionLevel) -> FraudThreshold:
-        segment_rules = {
-            (SegmentLevel.BUSINESS, DirectionLevel.CREDIT): cls().segment_business_threshold().rules[0],
-            (SegmentLevel.BUSINESS, DirectionLevel.DEBIT): cls().segment_business_threshold().rules[1],
-            (SegmentLevel.RETAIL, DirectionLevel.CREDIT): cls().segment_retail_threshold().rules[0],
-            (SegmentLevel.RETAIL, DirectionLevel.DEBIT): cls().segment_retail_threshold().rules[1],
-            (SegmentLevel.INDIVIDUAL, DirectionLevel.CREDIT): cls().segment_individual_threshold().rules[0],
-            (SegmentLevel.INDIVIDUAL, DirectionLevel.DEBIT): cls().segment_individual_threshold().rules[1]
-        }
+    @abstractmethod
+    def get_thresholds(self, segment: Segment, direction: Direction, transaction_type: TransactionType) -> FraudThreshold:
+        raise NotImplementedError("Subclasses must implement this method.")
 
-        if (segment, direction) not in segment_rules:
-            raise ValueError(f"No rules found for segment {segment} and direction {direction}")
+if __name__ == "__main__":
+    rules = BaseRules
 
-        return segment_rules.get((segment, direction)).rule.threshold
-
-    def _rule(
-        self,
-        segment: SegmentLevel,
-        direction: DirectionLevel,
-        low: tuple,
-        medium: tuple,
-        high: tuple,
-    ) -> BaseSegmentDirectionRule:
-
-        return BaseSegmentDirectionRule(
-            segment=segment,
-            direction=direction,
-            rule=BaseRule(
-                threshold=FraudThreshold(
-                    low=Threshold(
-                        threshold=low[0],
-                        score=low[1],
-                    ),
-                    medium=Threshold(
-                        threshold=medium[0],
-                        score=medium[1],
-                    ),
-                    high=Threshold(
-                        threshold=high[0],
-                        score=high[1],
-                    ),
-                ),
-            ),
-        )
-
-    def segment_business_threshold(self) -> BaseRulesConfig:
-        pass
-
-    def segment_retail_threshold(self) -> BaseRulesConfig:
-        pass
-
-    def segment_individual_threshold(self) -> BaseRulesConfig:
-        pass
+    print(rules.get_score(Segment.BUSINESS, Direction.CREDIT, TransactionType.WITHDRAWAL, 10000.0))

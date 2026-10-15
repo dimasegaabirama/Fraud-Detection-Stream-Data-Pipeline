@@ -1,15 +1,32 @@
 from contextlib import contextmanager
-from typing_extensions import Iterator
 
-from pyflink.table import SqlDialect
+from pyflink.table import EnvironmentSettings, SqlDialect, StreamTableEnvironment
 from pyflink.table.catalog import HiveCatalog
-from pyflink.table import EnvironmentSettings, StreamTableEnvironment
+
 from src.config.settings import AppSettings
+
 
 class FlinkInitializer:
     def __init__(self, settings: AppSettings, t_env: StreamTableEnvironment):
         self.settings = settings
         self.t_env = t_env
+
+    @contextmanager
+    def create_hive_catalog(self):
+        hive_catalog = HiveCatalog(
+            catalog_name=self.settings.pipeline.catalog,
+            default_database=self.settings.pipeline.default_database,
+            hive_conf_dir=self.settings.hive.conf_dir,
+            hadoop_conf_dir=self.settings.hadoop.conf_dir,
+            hive_version=self.settings.hive.version
+        )
+        self.t_env.register_catalog(self.settings.pipeline.catalog, hive_catalog)
+        self.t_env.use_catalog(self.settings.pipeline.catalog)
+        self.t_env.get_config().set_sql_dialect(SqlDialect.HIVE)
+        try:
+            yield hive_catalog
+        finally:
+            self.t_env.get_config().set_sql_dialect(SqlDialect.DEFAULT)
 
     def initialize(self) -> None:
         self.initialize_source_tables()
@@ -18,7 +35,7 @@ class FlinkInitializer:
 
     def initialize_source_tables(self) -> None:
 
-        topic = self.settings.kafka.topic
+        topic = "transactions"
         kafka_username = self.settings.kafka.username
         kafka_password = self.settings.kafka.password.get_secret_value()
         bootstrap_servers = self.settings.kafka.bootstrap_servers
@@ -58,39 +75,22 @@ class FlinkInitializer:
             );
         """
 
-        self.t_env.execute_sql(source_tables.format(
-            topic=topic,
-            bootstrap_servers=bootstrap_servers,
-            kafka_username=kafka_username,
-            kafka_password=kafka_password
-        ))
-
-    @contextmanager
-    def create_hive_catalog(self):
-        hive_catalog = HiveCatalog(
-            catalog_name=self.settings.pipeline.catalog,
-            default_database=self.settings.pipeline.default_database,
-            hive_conf_dir=self.settings.hive.conf_dir,
-            hadoop_conf_dir=self.settings.hadoop.conf_dir,
-            hive_version=self.settings.hive.version
+        self.t_env.execute_sql(
+            source_tables.format(
+                topic=topic,
+                bootstrap_servers=bootstrap_servers,
+                kafka_username=kafka_username,
+                kafka_password=kafka_password,
+            )
         )
-        self.t_env.register_catalog(self.settings.pipeline.catalog, hive_catalog)
-        self.t_env.use_catalog(self.settings.pipeline.catalog)
-        self.t_env.get_config().set_sql_dialect(SqlDialect.HIVE)
-        try:
-            yield hive_catalog
-        finally:
-            self.t_env.get_config().set_sql_dialect(SqlDialect.DEFAULT)
-
 
     def initialize_hive_tables(self) -> None:
         with self.create_hive_catalog():
-            self.t_env.execute_sql(f"""
+            self.t_env.execute_sql("""
                 CREATE TABLE IF NOT EXISTS txn_raw (
                     event_id STRING,
                     transaction_id STRING,
                     user_id STRING,
-                    `timestamp` TIMESTAMP(3),
                     amount DOUBLE,
                     currency STRING,
                     status STRING,
@@ -103,14 +103,29 @@ class FlinkInitializer:
                     device_id STRING,
                     device_type STRING,
                     latitude DOUBLE,
-                    longitude DOUBLE
+                    longitude DOUBLE,
+                    `year` STRING,
+                    `month` STRING,
+                    `day` STRING,
+                    `timestamp` TIMESTAMP(3)
                 ) STORED AS PARQUET
-                PARTITIONED BY (`timestamp`)
+                PARTITIONED BY (`year` STRING, `month` STRING, `day` STRING)
                 CLUSTERED BY (user_id) INTO 10 BUCKETS
                 TBLPROPERTIES (
                     'parquet.compression' = 'SNAPPY'
+                    'sink.partition-commit.trigger' = 'partition-time',
+                    'partition.time-extractor.timestamp-pattern' = '$year-$month-$day 00:00:00',
+                    'sink.partition-commit.delay' = '1 d',
+                    'sink.partition-commit.watermark-time-zone' = 'Asia/Jakarta',
+                    'sink.partition-commit.policy.kind' = 'metastore,success-file',
+                    'auto-compaction' = 'true',
+                    'compaction.file-size' = '128MB',
+                    'sink.rolling-policy.file-size' = '128MB',
+                    'sink.rolling-policy.rollover-interval' = '30 min',
+                    'sink.rolling-policy.check-interval' = '1 min'
                 );
             """)
+
 
 if __name__ == "__main__":
     settings = AppSettings()
@@ -119,4 +134,3 @@ if __name__ == "__main__":
 
     flink_initializer = FlinkInitializer(settings, t_env)
     flink_initializer.initialize()
-

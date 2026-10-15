@@ -1,33 +1,32 @@
 from pydantic import BaseModel, model_validator
-from src.domain.enums import SegmentLevel, StatusLevel, DirectionLevel
 
-class Threshold(BaseModel):
-    threshold: float = 0.0
+from src.domain.enums import Direction, Segment, TransactionStatus
+
+
+class LevelThreshold(BaseModel):
+
+    value: float = 0.0
     score: int = 0
 
+
 class FraudThreshold(BaseModel):
-    low: Threshold
-    medium: Threshold
-    high: Threshold
 
+    low: LevelThreshold
+    medium: LevelThreshold
+    high: LevelThreshold
 
-    @model_validator(mode='before')
-    @classmethod
-    def check_threshold_hierarchy(cls, values):
-        if not (values['low'].threshold < values['medium'].threshold < values['high'].threshold):
-            raise ValueError("Threshold values must be in ascending order: low < medium < high.")
-        return values
+    @model_validator(mode="after")
+    def check_hierarchy(self):
+        if not (self.low.value < self.medium.value < self.high.value):
+            raise ValueError("Threshold values must be ascending: low < medium < high.")
+        if not (self.low.score < self.medium.score < self.high.score):
+            raise ValueError("Score values must be ascending: low < medium < high.")
+        return self
 
-    @model_validator(mode='before')
-    @classmethod
-    def check_score_hierarchy(cls, values):
-        if not (values['low'].score < values['medium'].score < values['high'].score):
-            raise ValueError("Score values must be in ascending order: low < medium < high.")
-        return values
 
 class FraudResult(BaseModel):
     user_id: str
-    segment: SegmentLevel
-    direction: DirectionLevel
+    segment: Segment
+    direction: Direction
     score: int
-    status: StatusLevel
+    status: TransactionStatus

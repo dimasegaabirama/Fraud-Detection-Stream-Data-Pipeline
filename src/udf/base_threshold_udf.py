@@ -1,17 +1,22 @@
 from pyflink.table import ScalarFunction
+
+from src.rules.base_rules import BaseRules
+from src.domain.enums import Direction, Segment, TransactionType
 from src.models.threshold import FraudThreshold
-from src.domain.enums import DirectionLevel, SegmentLevel
-from src.rules.amount_rules import AmountRules
 
-class AmountThresholdUdf(ScalarFunction):
 
-    def get_score(self, segment: str, direction: str, value: float) -> FraudThreshold:
-        segment_level = SegmentLevel(segment)
-        direction_level = DirectionLevel(direction)
-        return self.rules.get_thresholds(segment_level, direction_level)
+class BaseThresholdUDF(ScalarFunction):
+
+    def __init__(self, rules_factory: BaseRules):
+        super().__init__()
+        self.rules_factory = rules_factory
+        self.rules: BaseRules = None
 
     def open(self, function_context):
-        self.rules = AmountRules()
+        self.rules: BaseRules = self.rules_factory()
 
-    def eval(self, segment: str, direction: str, value: float) -> FraudThreshold:
-        return self.rules.get_thresholds(SegmentLevel(segment), DirectionLevel(direction)).
+    def eval(self, segment: str, direction: str, transaction_type: str, value: float) -> FraudThreshold:
+        return self.rules.get_score(Segment(segment), Direction(direction), TransactionType(transaction_type), value)
+
+if __name__ == "__main__":
+    pass

@@ -1,20 +1,11 @@
-from typing import Literal, Optional, Dict
-from pydantic import BaseModel, SecretStr, Field
+from pydantic import BaseModel, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.config.fraud_rules import (
-    HADOOP_CONF_DIR,
-    HIVE_CONF_DIR,
-    PIPELINE_CATALOG,
-    PIPELINE_DEFAULT_DATABASE,
-    PIPELINE_CHECKPOINT_DIR,
-    PIPELINE_SAVEPOINT_DIR
-)
-
-from src.domain.enums import JobMode
+from config.config import *
 
 
 class KafkaSettings(BaseModel):
+    topic: str
     username: str
     password: SecretStr
     bootstrap_servers: str
@@ -28,7 +19,7 @@ class HadoopSettings(BaseModel):
     @property
     def url(self) -> str:
         return f"hdfs://{self.hostname}:{self.port}"
-    
+
 
 class HiveSettings(BaseModel):
     version: str
@@ -54,7 +45,7 @@ class PipelineSettings(BaseModel):
     savepoint_dir: str = PIPELINE_SAVEPOINT_DIR
     catalog: str = PIPELINE_CATALOG
     default_database: str = PIPELINE_DEFAULT_DATABASE
-    
+
 
 class AppSettings(BaseSettings):
     kafka: KafkaSettings
@@ -70,6 +61,7 @@ class AppSettings(BaseSettings):
         extra="ignore",
     )
 
+
 if __name__ == "__main__":
     settings = AppSettings()
-    print(settings)
+    print(settings.pipeline)

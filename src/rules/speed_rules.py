@@ -1,71 +1,44 @@
+from src.domain.enums import Direction, Segment, TransactionType
 from src.rules.base_rules import BaseRules
-from src.domain.enums import DirectionLevel, SegmentLevel
-from src.models.rules import SpeedRulesConfig
-
+from src.models.threshold import FraudThreshold, LevelThreshold
 
 class SpeedRules(BaseRules):
-    def segment_business_threshold(self) -> SpeedRulesConfig:
-        s = SegmentLevel.BUSINESS
 
-        return SpeedRulesConfig(
-            rules=[
-                self._rule(
-                    s,
-                    DirectionLevel.CREDIT,
-                    low=(120, 10.0),
-                    medium=(250, 50.0),
-                    high=(500, 80.0),
-                ),
-                self._rule(
-                    s,
-                    DirectionLevel.DEBIT,
-                    low=(120, 15.0),
-                    medium=(250, 60.0),
-                    high=(500, 90.0),
-                ),
-            ]
-        )
+    SPEED_RULES = FraudThreshold(
+        low=LevelThreshold(value=300.0, score=10),
+        medium=LevelThreshold(value=600.0, score=50),          
+        high=LevelThreshold(value=900.0, score=80)
+    )
 
-    def segment_retail_threshold(self) -> SpeedRulesConfig:
-        s = SegmentLevel.RETAIL
+    SEGMENT_FACTOR = {
+        Segment.BUSINESS: 1.2,
+        Segment.RETAIL: 1.1,
+        Segment.INDIVIDUAL: 1.0,
+    }
 
-        return SpeedRulesConfig(
-            rules=[
-                self._rule(
-                    s,
-                    DirectionLevel.CREDIT,
-                    low=(100, 10.0),
-                    medium=(200, 50.0),
-                    high=(400, 80.0),
-                ),
-                self._rule(
-                    s,
-                    DirectionLevel.DEBIT,
-                    low=(100, 15.0),
-                    medium=(200, 60.0),
-                    high=(400, 90.0),
-                ),
-            ]
-        )
+    def get_score(self, segment: Segment, value: float) -> float:
+        threshold = self.get_thresholds(segment)
 
-    def segment_individual_threshold(self) -> SpeedRulesConfig:
-        s = SegmentLevel.INDIVIDUAL
+        if value >= threshold.high.value:
+            return threshold.high.score
+        elif value >= threshold.medium.value:
+            return threshold.medium.score
+        elif value >= threshold.low.value:
+            return threshold.low.score
+        else:
+            return 0.0
 
-        return SpeedRulesConfig(
-            rules=[
-                self._rule(
-                    s,
-                    DirectionLevel.CREDIT,
-                    low=(80, 10.0),
-                    medium=(150, 50.0),
-                    high=(300, 80.0),
-                ),
-                self._rule(
-                    s,
-                    DirectionLevel.DEBIT,
-                    low=(80, 15.0),
-                    medium=(150, 60.0),
-                    high=(300, 90.0),
-                ),
-            ]
+
+    def get_thresholds(self, segment: Segment) -> FraudThreshold:
+        base_threshold = self.SPEED_RULES
+        segment_factor = self.SEGMENT_FACTOR.get(segment, 1.0)
+
+        adjusted_low = base_threshold.low.value * segment_factor
+        adjusted_medium = base_threshold.medium.value * segment_factor
+        adjusted_high = base_threshold.high.value * segment_factor
+
+        return FraudThreshold(
+            low=LevelThreshold(value=adjusted_low, score=base_threshold.low.score),
+            medium=LevelThreshold(value=adjusted_medium, score=base_threshold.medium.score),
+            high=LevelThreshold(value=adjusted_high, score=base_threshold.high.score),
         )

@@ -1,80 +1,93 @@
 from typing_extensions import List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from src.models.threshold import FraudThreshold, Threshold
-from src.domain.enums import DirectionLevel, SegmentLevel
+from src.domain.enums import Direction, Segment, TransactionType
+from src.models.threshold import FraudThreshold
 
 
-# Base classes for rules
+# Base
 
 class BaseRule(BaseModel):
     enabled: bool = True
     threshold: FraudThreshold
 
-class BaseSegmentDirectionRule(BaseModel):
-    segment: SegmentLevel
-    direction: DirectionLevel
+
+class BaseFraudRule(BaseModel):
+    segment: Segment
+    direction: Direction
+    transaction_type: TransactionType
     rule: BaseRule
 
-class BaseRulesConfig(BaseModel):
-    rules: List[BaseSegmentDirectionRule]
+
+class BaseFraudRulesConfig(BaseModel):
+    rules: List[BaseFraudRule]
 
 
-# Amount rules
+# Amount
 
 class AmountRule(BaseRule):
     pass
 
-class AmountSegmentDirectionRule(BaseSegmentDirectionRule):
+
+class AmountFraudRule(BaseFraudRule):
     rule: AmountRule
 
-class AmountRulesConfig(BaseRulesConfig):
-    rules: List[AmountSegmentDirectionRule]
+
+class AmountFraudRulesConfig(BaseFraudRulesConfig):
+    rules: List[AmountFraudRule]
 
 
-# Velocity rules
+# Velocity
 
 class VelocityRule(BaseRule):
     pass
 
-class VelocitySegmentDirectionRule(BaseSegmentDirectionRule):
+
+class VelocityFraudRule(BaseFraudRule):
     rule: VelocityRule
 
-class VelocityRulesConfig(BaseRulesConfig):
-    rules: List[VelocitySegmentDirectionRule]
+
+class VelocityFraudRulesConfig(BaseFraudRulesConfig):
+    rules: List[VelocityFraudRule]
 
 
-# Device rules
+# Device
 
 class DeviceRule(BaseRule):
     pass
 
-class DeviceSegmentDirectionRule(BaseSegmentDirectionRule):
+
+class DeviceFraudRule(BaseFraudRule):
     rule: DeviceRule
 
-class DeviceRulesConfig(BaseRulesConfig):
-    rules: List[DeviceSegmentDirectionRule]
+
+class DeviceFraudRulesConfig(BaseFraudRulesConfig):
+    rules: List[DeviceFraudRule]
 
 
-# IP Address rules
+# IP Address
 
 class IPAddressRule(BaseRule):
     pass
 
-class IPAddressSegmentDirectionRule(BaseSegmentDirectionRule):
+
+class IPAddressFraudRule(BaseFraudRule):
     rule: IPAddressRule
 
-class IPAddressRulesConfig(BaseRulesConfig):
-    rules: List[IPAddressSegmentDirectionRule]
+
+class IPAddressFraudRulesConfig(BaseFraudRulesConfig):
+    rules: List[IPAddressFraudRule]
 
 
-# Speed rules
+# Speed
 
 class SpeedRule(BaseRule):
     pass
 
-class SpeedSegmentDirectionRule(BaseSegmentDirectionRule):
+
+class SpeedFraudRule(BaseFraudRule):
     rule: SpeedRule
 
-class SpeedRulesConfig(BaseRulesConfig):
-    rules: List[SpeedSegmentDirectionRule]
+
+class SpeedFraudRulesConfig(BaseFraudRulesConfig):
+    rules: List[SpeedFraudRule]
