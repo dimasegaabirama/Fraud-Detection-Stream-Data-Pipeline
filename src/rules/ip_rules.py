@@ -1,10 +1,9 @@
 from src.domain.enums import Direction, Segment, TransactionType
-from src.rules.base_rules import BaseRules
 from src.models.threshold import FraudThreshold, LevelThreshold
+from src.rules.base_rules import BaseRules
 
 
 class IPRules(BaseRules):
-
     IP_RULES = FraudThreshold(
         low=LevelThreshold(value=2.0, score=10),
         medium=LevelThreshold(value=4.0, score=50),
@@ -31,16 +30,27 @@ class IPRules(BaseRules):
         Direction.DEBIT: 1.0,
     }
 
-    def get_thresholds(self, segment: Segment, direction: Direction, transaction_type: TransactionType) -> FraudThreshold:
+    def get_thresholds(
+        self, segment: Segment, direction: Direction, transaction_type: TransactionType
+    ) -> FraudThreshold:
         base_threshold = self.IP_RULES
 
         direction_factor = self.DIRECTION_FACTOR.get(direction, 1.0)
         segment_factor = self.SEGMENT_FACTOR.get(segment, 1.0)
         transaction_type_factor = self.TRANSACTION_TYPE_FACTOR.get(transaction_type, 1.0)
 
-        adjusted_low = base_threshold.low.value * direction_factor * segment_factor * transaction_type_factor
-        adjusted_medium = base_threshold.medium.value * direction_factor * segment_factor * transaction_type_factor
-        adjusted_high = base_threshold.high.value * direction_factor * segment_factor * transaction_type_factor
+        adjusted_low = (
+            base_threshold.low.value * direction_factor * segment_factor * transaction_type_factor
+        )
+        adjusted_medium = (
+            base_threshold.medium.value
+            * direction_factor
+            * segment_factor
+            * transaction_type_factor
+        )
+        adjusted_high = (
+            base_threshold.high.value * direction_factor * segment_factor * transaction_type_factor
+        )
 
         return FraudThreshold(
             low=LevelThreshold(value=adjusted_low, score=base_threshold.low.score),
@@ -48,6 +58,6 @@ class IPRules(BaseRules):
             high=LevelThreshold(value=adjusted_high, score=base_threshold.high.score),
         )
 
+
 if __name__ == "__main__":
     pass
-

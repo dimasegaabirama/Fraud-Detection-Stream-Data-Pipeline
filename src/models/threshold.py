@@ -4,13 +4,11 @@ from src.domain.enums import Direction, Segment, TransactionStatus
 
 
 class LevelThreshold(BaseModel):
-
     value: float = 0.0
     score: int = 0
 
 
 class FraudThreshold(BaseModel):
-
     low: LevelThreshold
     medium: LevelThreshold
     high: LevelThreshold

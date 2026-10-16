@@ -1,7 +1,14 @@
 from pydantic import BaseModel, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from config.config import *
+from src.config.config import (
+    PIPELINE_CHECKPOINT_DIR, 
+    PIPELINE_CATALOG, 
+    PIPELINE_DEFAULT_DATABASE, 
+    PIPELINE_SAVEPOINT_DIR, 
+    HADOOP_CONF_DIR, 
+    HIVE_CONF_DIR
+)
 
 
 class KafkaSettings(BaseModel):

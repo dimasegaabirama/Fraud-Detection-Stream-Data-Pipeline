@@ -64,7 +64,7 @@ Every rule is defined per **segment x direction**, with three severity levels:
 self._rule(
     SegmentLevel.RETAIL,
     DirectionLevel.DEBIT,
-    low=(4, 15.0),      # (threshold, score)
+    low=(4, 15.0),  # (threshold, score)
     medium=(5, 60.0),
     high=(8, 90.0),
 )

@@ -1,17 +1,9 @@
-from pyflink.table import StreamTableEnvironment
-from pyflink.table import udf
+from pyflink.table import StreamTableEnvironment, udf
 from pyflink.table.types import DataTypes
 
 from src.config.settings import AppSettings
-from src.utils.hive_utils import use_hive_catalog
+from src.rules import AmountRules, VelocityRules
 from src.udf.base_threshold_udf import BaseThresholdUDF
-from src.rules import (
-    AmountRules,
-    VelocityRules,
-    DeviceRules,
-    IPAddressRulesConfig,
-    SpeedRules
-)
 
 
 class FraudDetectionJob:
@@ -77,14 +69,13 @@ class FraudDetectionJob:
         """)
 
         return self.t_env
-        
+
     def velocity_fraud_detection(self, cleaned_table) -> None:
 
         rules = VelocityRules
 
         self.t_env.create_temporary_function(
-            "velocity_fraud_detection",
-            udf(BaseThresholdUDF(rules), result_type=DataTypes.INT())
+            "velocity_fraud_detection", udf(BaseThresholdUDF(rules), result_type=DataTypes.INT())
         )
 
         self.t_env.execute_sql(f"""
@@ -117,8 +108,7 @@ class FraudDetectionJob:
         rules = AmountRules
 
         self.t_env.create_temporary_function(
-            "amount_fraud_detection",
-            udf(BaseThresholdUDF(rules), result_type=DataTypes.INT())
+            "amount_fraud_detection", udf(BaseThresholdUDF(rules), result_type=DataTypes.INT())
         )
 
         self.t_env.execute_sql(f"""

@@ -1,13 +1,17 @@
 from abc import ABC, abstractmethod
-from typing_extensions import Dict, Tuple
 
 from src.domain.enums import Direction, Segment, TransactionType
 from src.models.threshold import FraudThreshold
 
 
 class BaseRules(ABC):
-
-    def get_score(self, segment: Segment, direction: Direction, transaction_type: TransactionType, value: float) -> float:
+    def get_score(
+        self,
+        segment: Segment,
+        direction: Direction,
+        transaction_type: TransactionType,
+        value: float,
+    ) -> float:
         threshold = self.get_thresholds(segment, direction, transaction_type)
 
         if value >= threshold.high.value:
@@ -20,8 +24,11 @@ class BaseRules(ABC):
             return 0.0
 
     @abstractmethod
-    def get_thresholds(self, segment: Segment, direction: Direction, transaction_type: TransactionType) -> FraudThreshold:
+    def get_thresholds(
+        self, segment: Segment, direction: Direction, transaction_type: TransactionType
+    ) -> FraudThreshold:
         raise NotImplementedError("Subclasses must implement this method.")
+
 
 if __name__ == "__main__":
     rules = BaseRules

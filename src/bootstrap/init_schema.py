@@ -18,7 +18,7 @@ class FlinkInitializer:
             default_database=self.settings.pipeline.default_database,
             hive_conf_dir=self.settings.hive.conf_dir,
             hadoop_conf_dir=self.settings.hadoop.conf_dir,
-            hive_version=self.settings.hive.version
+            hive_version=self.settings.hive.version,
         )
         self.t_env.register_catalog(self.settings.pipeline.catalog, hive_catalog)
         self.t_env.use_catalog(self.settings.pipeline.catalog)
