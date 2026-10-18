@@ -15,7 +15,7 @@ class SpeedThresholdUDF(BaseThresholdUDF):
         t1: TimestampType,
         t2: TimestampType,
     ) -> float:
-        
+
         import math
 
         lat_1, lon_1, lat_2, lon_2 = map(math.radians, [lat_1, lon_1, lat_2, lon_2])

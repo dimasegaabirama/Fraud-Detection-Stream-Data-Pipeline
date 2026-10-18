@@ -1,90 +1,131 @@
-from contextlib import contextmanager
+from pyflink.datastream import DataStream, StreamExecutionEnvironment
+from pyflink.table import StreamTableEnvironment
+from pyflink.datastream.formats.json import JsonRowDeserializationSchema
+from pyflink.common import Types
+from pyflink.datastream.connectors.kafka import KafkaSource, KafkaOffsetsInitializer
+from pyflink.common import WatermarkStrategy
 
-from pyflink.table import EnvironmentSettings, SqlDialect, StreamTableEnvironment
-from pyflink.table.catalog import HiveCatalog
+# from src.config.settings import AppSettings
+from src.domain.enums import FlowDirection
 
-from src.config.settings import AppSettings
+class BootstrapInitializer:
+    
+    FIELDS = [
+        ("event_id", Types.STRING()),
+        ("transaction_id", Types.STRING()),
+        ("user_id", Types.STRING()),
+        ("timestamp", Types.SQL_TIMESTAMP()),
+        ("amount", Types.DOUBLE()),
+        ("currency", Types.STRING()),
+        ("status", Types.STRING()),
+        ("transaction_type", Types.STRING()),
+        ("direction", Types.STRING()),
+        ("sender_account", Types.STRING()),
+        ("receiver_account", Types.STRING()),
+        ("merchant_id", Types.STRING()),
+        ("ip_address", Types.STRING()),
+        ("device_id", Types.STRING()),
+        ("device_type", Types.STRING()),
+        ("latitude", Types.DOUBLE()),
+        ("longitude", Types.DOUBLE()),
+    ]
 
-
-class FlinkInitializer:
-    def __init__(self, settings: AppSettings, t_env: StreamTableEnvironment):
+    def __init__(self, settings: str, env: StreamExecutionEnvironment):
         self.settings = settings
-        self.t_env = t_env
+        self.env = env
+        self.t_env = StreamTableEnvironment.create(env)
 
-    @contextmanager
-    def create_hive_catalog(self):
-        hive_catalog = HiveCatalog(
-            catalog_name=self.settings.pipeline.catalog,
-            default_database=self.settings.pipeline.default_database,
-            hive_conf_dir=self.settings.hive.conf_dir,
-            hadoop_conf_dir=self.settings.hadoop.conf_dir,
-            hive_version=self.settings.hive.version,
-        )
-        self.t_env.register_catalog(self.settings.pipeline.catalog, hive_catalog)
-        self.t_env.use_catalog(self.settings.pipeline.catalog)
-        self.t_env.get_config().set_sql_dialect(SqlDialect.HIVE)
-        try:
-            yield hive_catalog
-        finally:
-            self.t_env.get_config().set_sql_dialect(SqlDialect.DEFAULT)
+    def create_hive_catalog(self, flow_direction: FlowDirection):
+        base_pipeline = getattr(self.settings.pipeline, flow_direction.value.lower())
+        for pipeline_config in base_pipeline:
+            self.t_env.catalog
 
-    def initialize(self) -> None:
-        self.initialize_source_tables()
-        self.initialize_hive_tables()
-        return None
+    def build_kafka_source(self, source_config):
+        username = self.settings.kafka.username
+        password = self.settings.kafka.password.get_secret_value()
 
-    def initialize_source_tables(self) -> None:
+        bootstrap_servers = source_config.bootstrap_servers
+        topic = source_config.topic
 
-        topic = "transactions"
-        kafka_username = self.settings.kafka.username
-        kafka_password = self.settings.kafka.password.get_secret_value()
-        bootstrap_servers = self.settings.kafka.bootstrap_servers
-
-        source_tables = f"""
-            CREATE TABLE transactions (
-                event_id STRING,
-                transaction_id STRING,
-                user_id STRING,
-                `timestamp` TIMESTAMP(3),
-                amount DOUBLE,
-                currency STRING,
-                status STRING,
-                transaction_type STRING,
-                direction STRING,
-                sender_account STRING,
-                receiver_account STRING,
-                merchant_id STRING,
-                ip_address STRING,
-                device_id STRING,
-                device_type STRING,
-                latitude DOUBLE,
-                longitude DOUBLE,
-                WATERMARK FOR `timestamp` AS `timestamp` - INTERVAL '5' SECOND
-            ) WITH (
-                'connector' = 'kafka',
-                'topic' = '{topic}',
-                'properties.bootstrap.servers' = '{bootstrap_servers}',
-                'properties.group.id' = 'fraud-detection',
-                'scan.startup.mode' = 'earliest-offset',
-                'format' = 'json',
-                'json.timestamp-format.standard' = 'SQL'
-
-                'properties.security.protocol' = 'SASL_PLAINTEXT',
-                'properties.sasl.mechanism' = 'PLAIN',
-                'properties.sasl.jaas.config' = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="{kafka_username}" password="{kafka_password}";'
-            );
-        """
-
-        self.t_env.execute_sql(
-            source_tables.format(
-                topic=topic,
-                bootstrap_servers=bootstrap_servers,
-                kafka_username=kafka_username,
-                kafka_password=kafka_password,
+        deserializer = (
+            JsonRowDeserializationSchema.builder()
+            .type_info(
+                Types.ROW_NAMED(
+                    [name for name, _ in self.FIELDS],
+                    [type_ for _, type_ in self.FIELDS],
+                )
             )
+            .build()
         )
 
-    def initialize_hive_tables(self) -> None:
+        jaas = (
+            "org.apache.kafka.common.security.plain.PlainLoginModule required "
+            f'username="{username}" password="{password}";'
+        )
+
+        return (
+            KafkaSource.builder()
+            .set_bootstrap_servers(bootstrap_servers)
+            .set_topics(topic)
+            .set_starting_offsets(KafkaOffsetsInitializer.latest())
+            .set_property("security.protocol", "SASL_PLAINTEXT")
+            .set_property("sasl.mechanism", "PLAIN")
+            .set_property("sasl.jaas.config", jaas)
+            .set_value_only_deserializer(deserializer)
+            .build()
+        )
+
+    def initialize_source(self) -> DataStream:
+        for source in self.settings.pipeline.sources:
+            if source.type == "kafka":
+                username = self.settings.kafka.username
+                password = self.settings.kafka.password.get_secret_value()
+
+                bootstrap_servers = source.bootstrap_servers
+                topic = source.topic
+                group_id = source.group_id
+            
+            elif source.type == "hive":
+                catalog_name = source.catalog_name
+                default_database = source.default_database
+                table = source.table    
+
+ 
+        deserializer = (
+            JsonRowDeserializationSchema.builder()
+            .type_info(
+                Types.ROW_NAMED(
+                    [name for name, _ in self.FIELDS],
+                    [type_ for _, type_ in self.FIELDS],
+                )
+            )
+            .build()
+        )
+ 
+        jaas = (
+            "org.apache.kafka.common.security.plain.PlainLoginModule required "
+            f'username="{username}" password="{password}";'
+        )
+ 
+        source = (
+            KafkaSource.builder()
+            .set_bootstrap_servers(self.settings.kafka.bootstrap_servers)
+            .set_topics(self.settings.kafka.topic)
+            .set_starting_offsets(KafkaOffsetsInitializer.latest())
+            .set_property("security.protocol", "SASL_PLAINTEXT")
+            .set_property("sasl.mechanism", "PLAIN")
+            .set_property("sasl.jaas.config", jaas)
+            .set_value_only_deserializer(deserializer)
+            .build()
+        )
+ 
+        return self.env.from_source(
+            source=source,
+            watermark_strategy=WatermarkStrategy.no_watermarks(),
+            source_name="transactions",
+        )
+
+    def initialize_sink(self) -> None:
         with self.create_hive_catalog():
             self.t_env.execute_sql("""
                 CREATE TABLE IF NOT EXISTS txn_raw (
@@ -128,9 +169,4 @@ class FlinkInitializer:
 
 
 if __name__ == "__main__":
-    settings = AppSettings()
-    env_settings = EnvironmentSettings.in_streaming_mode()
-    t_env = StreamTableEnvironment.create(environment_settings=env_settings)
-
-    flink_initializer = FlinkInitializer(settings, t_env)
-    flink_initializer.initialize()
+    pass

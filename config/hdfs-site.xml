@@ -2,12 +2,12 @@
 
     <property>
         <name>dfs.namenode.name.dir</name>
-        <value>file:///opt/hadoop-${env.HADOOP__VERSION}/data/namenode</value>
+        <value>file:///opt/hadoop/data/namenode</value>
     </property>
 
     <property>
         <name>dfs.datanode.data.dir</name>
-        <value>file:///opt/hadoop-${env.HADOOP__VERSION}/data/datanode</value>
+        <value>file:///opt/hadoop/data/datanode</value>
     </property>
 
     <property>

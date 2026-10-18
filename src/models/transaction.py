@@ -1,0 +1,66 @@
+from pydantic import BaseModel, model_validator, Field
+
+from src.domain.enums import (
+    DeviceType,
+    Segment,
+    TransactionDirection,
+    TransactionStatus,
+    TransactionType,
+)
+
+
+class Transaction(BaseModel):
+    event_id: str
+    transaction_id: str
+    user_id: str
+    amount: float = Field(gt=0, description="Transaction amount must be greater than zero.")
+    currency: str = Field(min_length=3, max_length=3, description="Currency must be a valid 3-letter ISO code.")
+    segment: Segment
+    transaction_type: TransactionType
+    direction: TransactionDirection
+    sender_account: str | None = None
+    receiver_account: str | None = None
+    merchant_id: str | None = None
+    ip_address: str
+    device_id: str
+    device_type: DeviceType
+    latitude: float
+    longitude: float
+    status: TransactionStatus
+    timestamp: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_enum_values(cls, values):
+        values["status"] = TransactionStatus(values.get("status").upper())
+        values["transaction_type"] = TransactionType(values.get("transaction_type").upper())
+        values["direction"] = TransactionDirection(values.get("direction").upper())
+        values["device_type"] = DeviceType(values.get("device_type").upper())
+        values["segment"] = Segment(values.get("segment").upper())
+        return values
+
+
+if __name__ == "__main__":
+    txn = {
+        "event_id": "evt_1",
+        "transaction_id": "txn_1",
+        "user_id": "user_1",
+        "amount": 100.0,
+        "currency": "USD",
+        "segment": "retail",
+        "transaction_type": "cashout",
+        "direction": "credit",
+        "sender_account": "sender_1",
+        "receiver_account": "receiver_1",
+        "merchant_id": "merchant_1",
+        "ip_address": "192.168.1.1",
+        "device_id": "device_1",
+        "device_type": "web",
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "status": "success",
+        "timestamp": "2023-04-01T00:00:00Z",
+    }
+
+    transaction = Transaction(**txn)
+    print(transaction)

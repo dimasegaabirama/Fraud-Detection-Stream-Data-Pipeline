@@ -1,23 +1,37 @@
+from pathlib import Path
 
-from pydantic import BaseModel
+import yaml
+from pydantic import BaseModel, model_validator
 
-from src.domain.enums import Direction, Segment, TransactionType
+from src.domain.enums import Aggregation
 from src.models.threshold import FraudThreshold
 
-# Base
 
-
-class BaseRule(BaseModel):
+class FraudRule(BaseModel):
     enabled: bool = True
+    aggregation: Aggregation
+    group_key: list[str]
+    agg_fields: list[str]
+    window_minutes: int | None = None
     threshold: FraudThreshold
+    factors: dict[str, dict[str, float]] = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def verify_aggregation(cls, values):
+        aggregation = values.get("aggregation").upper()
+        values["aggregation"] = Aggregation(aggregation)
+        return values
 
 
-class BaseFraudRule(BaseModel):
-    segment: Segment
-    direction: Direction
-    transaction_type: TransactionType
-    rule: BaseRule
+class RulesSettings(BaseModel):
+    amount: FraudRule
+    device: FraudRule
+    ip: FraudRule
+    device: FraudRule
+    speed: FraudRule
+    velocity: FraudRule
 
 
-class BaseFraudRulesConfig(BaseModel):
-    rules: list[BaseFraudRule]
+if __name__ == "__main__":
+    pass

@@ -1,10 +1,24 @@
 from enum import Enum
 
 
+class FlowDirection(str, Enum):
+    SINK = "SINK"
+    SOURCE = "SOURCE"
+
+
 class ThresholdLevel(str, Enum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
+
+
+class Aggregation(str, Enum):
+    AVG = "AVG"
+    SUM = "SUM"
+    MAX = "MAX"
+    MIN = "MIN"
+    COUNT = "COUNT"
+    CUSTOM = "CUSTOM"
 
 
 class Segment(str, Enum):
@@ -13,7 +27,7 @@ class Segment(str, Enum):
     INDIVIDUAL = "INDIVIDUAL"
 
 
-class Direction(str, Enum):
+class TransactionDirection(str, Enum):
     DEBIT = "DEBIT"
     CREDIT = "CREDIT"
 
