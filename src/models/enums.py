@@ -21,7 +21,7 @@ class Aggregation(str, Enum):
     CUSTOM = "CUSTOM"
 
 
-class Segment(str, Enum):
+class SegmentType(str, Enum):
     RETAIL = "RETAIL"
     BUSINESS = "BUSINESS"
     INDIVIDUAL = "INDIVIDUAL"

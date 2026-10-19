@@ -2,7 +2,7 @@ from pydantic import BaseModel, model_validator, Field
 
 from src.models.enums import (
     DeviceType,
-    Segment,
+    SegmentType,
     TransactionDirection,
     TransactionStatus,
     TransactionType,
@@ -35,7 +35,7 @@ class Transaction(BaseModel):
         TransactionType(self.transaction_type.upper())
         TransactionDirection(self.direction.upper())
         DeviceType(self.device_type.upper())
-        Segment(self.segment.upper())
+        SegmentType(self.segment.upper())
         
         return self
 

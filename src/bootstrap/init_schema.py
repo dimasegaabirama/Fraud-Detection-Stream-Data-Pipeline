@@ -5,30 +5,10 @@ from pyflink.common import Types
 from pyflink.datastream.connectors.kafka import KafkaSource, KafkaOffsetsInitializer
 from pyflink.common import WatermarkStrategy
 
-# from src.config.settings import AppSettings
-from models.enums import FlowDirection
+from src.models.enums import FlowDirection
+from src.models.transaction import Transaction
 
 class BootstrapInitializer:
-    
-    FIELDS = [
-        ("event_id", Types.STRING()),
-        ("transaction_id", Types.STRING()),
-        ("user_id", Types.STRING()),
-        ("timestamp", Types.SQL_TIMESTAMP()),
-        ("amount", Types.DOUBLE()),
-        ("currency", Types.STRING()),
-        ("status", Types.STRING()),
-        ("transaction_type", Types.STRING()),
-        ("direction", Types.STRING()),
-        ("sender_account", Types.STRING()),
-        ("receiver_account", Types.STRING()),
-        ("merchant_id", Types.STRING()),
-        ("ip_address", Types.STRING()),
-        ("device_id", Types.STRING()),
-        ("device_type", Types.STRING()),
-        ("latitude", Types.DOUBLE()),
-        ("longitude", Types.DOUBLE()),
-    ]
 
     def __init__(self, settings: str, env: StreamExecutionEnvironment):
         self.settings = settings

@@ -1,4 +1,4 @@
-from typing_extensions import Literal, Optional, Annotated
+from typing_extensions import Literal, Optional, Annotated, Union
 
 from pydantic import BaseModel, Field
 
@@ -20,4 +20,4 @@ class HiveEndpoint(BaseModel):
     hive_conf_dir: Optional[str] = None
     hadoop_conf_dir: Optional[str] = None
 
-Endpoint = Annotated[KafkaEndpoint | HiveEndpoint, Field(discriminator="type")]
+Endpoint = Annotated[Union[KafkaEndpoint, HiveEndpoint], Field(discriminator="type")]

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, model_validator
 
-from models.enums import Segment, TransactionDirection, TransactionStatus
+from models.enums import SegmentType, TransactionDirection, TransactionStatus
 
 
 class LevelThreshold(BaseModel):
@@ -24,7 +24,7 @@ class FraudThreshold(BaseModel):
 
 class FraudResult(BaseModel):
     user_id: str
-    segment: Segment
+    segment: SegmentType
     direction: TransactionDirection
     score: int
     status: TransactionStatus
