@@ -1,7 +1,7 @@
 from abc import ABC
 from copy import deepcopy
 
-from src.models.rules import RuleConfig
+from config.rules import RuleConfig
 from src.models.threshold import FraudThreshold
 
 

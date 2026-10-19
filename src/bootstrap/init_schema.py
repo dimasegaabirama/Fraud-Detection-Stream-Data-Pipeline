@@ -6,7 +6,7 @@ from pyflink.datastream.connectors.kafka import KafkaSource, KafkaOffsetsInitial
 from pyflink.common import WatermarkStrategy
 
 # from src.config.settings import AppSettings
-from src.domain.enums import FlowDirection
+from models.enums import FlowDirection
 
 class BootstrapInitializer:
     

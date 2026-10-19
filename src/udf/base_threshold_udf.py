@@ -1,6 +1,6 @@
 from pyflink.table import ScalarFunction
 
-from src.domain.enums import Direction, Segment, TransactionType
+from models.enums import Direction, Segment, TransactionType
 from src.models.threshold import FraudThreshold
 from src.rules.base_rules import BaseRules
 

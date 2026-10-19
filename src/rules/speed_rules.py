@@ -1,5 +1,5 @@
-from src.domain.enums import Aggregation, Segment
-from src.models.rules import RuleConfig
+from models.enums import Aggregation, Segment
+from config.rules import RuleConfig
 from src.models.threshold import FraudThreshold, LevelThreshold
 from src.rules.base_rules import BaseRules
 

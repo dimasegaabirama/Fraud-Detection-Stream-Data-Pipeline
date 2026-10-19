@@ -8,7 +8,7 @@ class KafkaEndpoint(BaseModel):
     type: Literal["kafka"]
     bootstrap_servers: Optional[str] = None
     topic: str
-    group_id: str
+    group_id: Optional[str] = None
 
 
 class HiveEndpoint(BaseModel):

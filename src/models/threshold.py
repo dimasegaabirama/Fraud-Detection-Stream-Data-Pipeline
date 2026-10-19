@@ -1,6 +1,6 @@
 from pydantic import BaseModel, model_validator
 
-from src.domain.enums import Segment, TransactionDirection, TransactionStatus
+from models.enums import Segment, TransactionDirection, TransactionStatus
 
 
 class LevelThreshold(BaseModel):

@@ -1,6 +1,6 @@
 from pyflink.table.types import TimestampType
 
-from src.domain.enums import Segment
+from models.enums import Segment
 from src.models.threshold import FraudThreshold
 from src.udf.base_threshold_udf import BaseThresholdUDF
 
