@@ -63,6 +63,11 @@ class AppSettings(BaseSettings):
             elif isinstance(endpoint, KafkaEndpoint):
                 if endpoint.bootstrap_servers is None:
                     endpoint.bootstrap_servers = self.kafka.bootstrap_servers
+                if endpoint.username is None:
+                    endpoint.username = self.kafka.username
+                if endpoint.password is None:
+                    endpoint.password = self.kafka.password
+                    
         return self
 
 if __name__ == "__main__":

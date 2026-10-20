@@ -1,38 +1,38 @@
-from pyflink.datastream import DataStream, StreamExecutionEnvironment
-from pyflink.table import StreamTableEnvironment
-from pyflink.datastream.formats.json import JsonRowDeserializationSchema
+from pydantic import BaseModel
+from pyflink.datastream import StreamExecutionEnvironment
+from pyflink.table import StreamTableEnvironment, TableDescriptor, Schema
+from pyflink.datastream.formats.json import JsonRowDeserializationSchema, JsonRowSerializationSchema
 from pyflink.common import Types
-from pyflink.datastream.connectors.kafka import KafkaSource, KafkaOffsetsInitializer
-from pyflink.common import WatermarkStrategy
+from pyflink.datastream.connectors.kafka import DeliveryGuarantee, KafkaRecordSerializationSchema, KafkaSink, KafkaSource, KafkaOffsetsInitializer
 
-from src.models.enums import FlowDirection
-from src.models.transaction import Transaction
+from models.endpoint import HiveEndpoint, KafkaEndpoint
+from src.config.settings import AppSettings
+
+from src.utils.hive_utils import HiveUtils
+from src.utils.flink_utils import FlinkUtils
 
 class BootstrapInitializer:
 
-    def __init__(self, settings: str, env: StreamExecutionEnvironment):
+    def __init__(self, settings: AppSettings, env: StreamExecutionEnvironment):
         self.settings = settings
         self.env = env
         self.t_env = StreamTableEnvironment.create(env)
 
-    def create_hive_catalog(self, flow_direction: FlowDirection):
-        base_pipeline = getattr(self.settings.pipeline, flow_direction.value.lower())
-        for pipeline_config in base_pipeline:
-            self.t_env.catalog
+    def build_kafka_source(self, source: KafkaEndpoint, model: BaseModel) -> KafkaSource:
+        username = source.username
+        password = source.password.get_secret_value()
 
-    def build_kafka_source(self, source_config):
-        username = self.settings.kafka.username
-        password = self.settings.kafka.password.get_secret_value()
+        bootstrap_servers = source.bootstrap_servers
+        topic = source.topic
 
-        bootstrap_servers = source_config.bootstrap_servers
-        topic = source_config.topic
+        schema = FlinkUtils.build_flink_schema(model, "streaming")
 
         deserializer = (
             JsonRowDeserializationSchema.builder()
             .type_info(
                 Types.ROW_NAMED(
-                    [name for name, _ in self.FIELDS],
-                    [type_ for _, type_ in self.FIELDS],
+                    [name for name, _ in schema],
+                    [type_ for _, type_ in schema]
                 )
             )
             .build()
@@ -55,97 +55,89 @@ class BootstrapInitializer:
             .build()
         )
 
-    def initialize_source(self) -> DataStream:
-        for source in self.settings.pipeline.sources:
-            if source.type == "kafka":
-                username = self.settings.kafka.username
-                password = self.settings.kafka.password.get_secret_value()
+    def build_kafka_sink(self, sink: KafkaEndpoint, model: BaseModel):
+        username = sink.username
+        password = sink.password.get_secret_value()
 
-                bootstrap_servers = source.bootstrap_servers
-                topic = source.topic
-                group_id = source.group_id
-            
-            elif source.type == "hive":
-                catalog_name = source.catalog_name
-                default_database = source.default_database
-                table = source.table    
+        bootstrap_servers = sink.bootstrap_servers
+        topic = sink.topic
 
- 
-        deserializer = (
-            JsonRowDeserializationSchema.builder()
-            .type_info(
+        base_schema = FlinkUtils.build_flink_schema(model, "streaming")
+
+        serializer = (
+            JsonRowSerializationSchema.builder()
+            .with_type_info(
                 Types.ROW_NAMED(
-                    [name for name, _ in self.FIELDS],
-                    [type_ for _, type_ in self.FIELDS],
+                    [name for name, _ in base_schema],
+                    [type_ for _, type_ in base_schema]
                 )
             )
             .build()
         )
- 
+
         jaas = (
             "org.apache.kafka.common.security.plain.PlainLoginModule required "
             f'username="{username}" password="{password}";'
         )
- 
-        source = (
-            KafkaSource.builder()
-            .set_bootstrap_servers(self.settings.kafka.bootstrap_servers)
-            .set_topics(self.settings.kafka.topic)
-            .set_starting_offsets(KafkaOffsetsInitializer.latest())
+
+        return (
+            KafkaSink.builder()
+            .set_bootstrap_servers(bootstrap_servers)
+            .set_record_serializer(
+                KafkaRecordSerializationSchema.builder()
+                .set_topic(topic)
+                .set_value_serialization_schema(serializer)
+                .build()
+            )
+            .set_delivery_guarantee(DeliveryGuarantee.EXACTLY_ONCE)
+            .set_transactional_id_prefix("fraud-job-alerts")
             .set_property("security.protocol", "SASL_PLAINTEXT")
             .set_property("sasl.mechanism", "PLAIN")
             .set_property("sasl.jaas.config", jaas)
-            .set_value_only_deserializer(deserializer)
             .build()
         )
- 
-        return self.env.from_source(
-            source=source,
-            watermark_strategy=WatermarkStrategy.no_watermarks(),
-            source_name="transactions",
+
+    def build_hive_sink(self, sink: HiveEndpoint, model: BaseModel):
+
+        version = self.settings.hive.version
+        table_name = sink.table
+
+        base_hive = HiveUtils(
+            self.t_env, 
+            sink.catalog_name, 
+            sink.default_database, 
+            hive_version=version
         )
 
-    def initialize_sink(self) -> None:
-        with self.create_hive_catalog():
-            self.t_env.execute_sql("""
-                CREATE TABLE IF NOT EXISTS txn_raw (
-                    event_id STRING,
-                    transaction_id STRING,
-                    user_id STRING,
-                    amount DOUBLE,
-                    currency STRING,
-                    status STRING,
-                    transaction_type STRING,
-                    direction STRING,
-                    sender_account STRING,
-                    receiver_account STRING,
-                    merchant_id STRING,
-                    ip_address STRING,
-                    device_id STRING,
-                    device_type STRING,
-                    latitude DOUBLE,
-                    longitude DOUBLE,
-                    `year` STRING,
-                    `month` STRING,
-                    `day` STRING,
-                    `timestamp` TIMESTAMP(3)
-                ) STORED AS PARQUET
-                PARTITIONED BY (`year` STRING, `month` STRING, `day` STRING)
-                CLUSTERED BY (user_id) INTO 10 BUCKETS
-                TBLPROPERTIES (
-                    'parquet.compression' = 'SNAPPY'
-                    'sink.partition-commit.trigger' = 'partition-time',
-                    'partition.time-extractor.timestamp-pattern' = '$year-$month-$day 00:00:00',
-                    'sink.partition-commit.delay' = '1 d',
-                    'sink.partition-commit.watermark-time-zone' = 'Asia/Jakarta',
-                    'sink.partition-commit.policy.kind' = 'metastore,success-file',
-                    'auto-compaction' = 'true',
-                    'compaction.file-size' = '128MB',
-                    'sink.rolling-policy.file-size' = '128MB',
-                    'sink.rolling-policy.rollover-interval' = '30 min',
-                    'sink.rolling-policy.check-interval' = '1 min'
-                );
-            """)
+        base_schema = FlinkUtils.build_flink_schema(model, "table")
+    
+        table_schema = Schema.new_builder().from_fields(
+            [name for name, _ in base_schema],
+            [type_ for _, type_ in base_schema]
+        )
+
+        base_hive.create_or_replace_catalog()
+        base_hive.create_or_replace_database()
+
+        with base_hive.use_hive_dialect() as hive_dialect:
+            hive_dialect.create_table(
+                table_name,
+                TableDescriptor.for_connector("hive")
+                .schema(
+                    table_schema.build()
+                )
+                .format("parquet")
+                .partitioned_by()
+                .option("sink.rolling-policy.file-size", "32MB")
+                .option("sink.rolling-policy.rollover-interval", "20 min")
+                .option("sink.rolling-policy.check-interval", "1 min")
+                .option("auto-compaction", "true")
+                .option("compaction.file-size", "128MB")
+                .option("sink.rolling-policy.check-interval", "1 min")
+            )
+
+        return None
+    
 
 
 if __name__ == "__main__":

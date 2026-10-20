@@ -40,26 +40,8 @@ class Transaction(BaseModel):
         return self
 
 if __name__ == "__main__":
-    txn = {
-        "event_id": "evt_1",
-        "transaction_id": "txn_1",
-        "user_id": "user_1",
-        "amount": 100.0,
-        "currency": "USD",
-        "segment": "retail",
-        "transaction_type": "cashout",
-        "direction": "credit",
-        "sender_account": "sender_1",
-        "receiver_account": "receiver_1",
-        "merchant_id": "merchant_1",
-        "ip_address": "192.168.1.1",
-        "device_id": "device_1",
-        "device_type": "web",
-        "latitude": 0.0,
-        "longitude": 0.0,
-        "status": "success",
-        "timestamp": "2023-04-01T00:00:00Z",
-    }
+    from src.utils.flink_utils import FlinkUtils
 
-    transaction = Transaction(**txn)
-    print(transaction)
+    schemas = FlinkUtils.build_flink_schema(Transaction)
+    for schema in schemas:
+        print(schema)

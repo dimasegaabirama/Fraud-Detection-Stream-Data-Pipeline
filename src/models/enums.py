@@ -64,6 +64,6 @@ class IPType(str, Enum):
     IPV6 = "IPV6"
 
 
-class JobMode(str, Enum):
+class EnvType(str, Enum):
     STREAMING = "STREAMING"
-    BATCH = "BATCH"
+    TABLE = "TABLE"

@@ -1,12 +1,14 @@
 from typing_extensions import Literal, Optional, Annotated, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 
 class KafkaEndpoint(BaseModel):
     name: str
     type: Literal["kafka"]
     bootstrap_servers: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[SecretStr] = None
     topic: str
     group_id: Optional[str] = None
 
