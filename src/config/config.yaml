@@ -34,8 +34,10 @@ pipeline:
     - name: "hive_sink"
       type: "hive"
       catalog_name: "fraud_detection_catalog"
-      default_database: "fraud_detection"
-      table: "fraud_detection_table"
+      default_database: "transactions"
+      table: "daily_transactions"
+      partitioned_by: ["year", "month", "day"]
+
 
 rules:
   amount:

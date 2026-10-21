@@ -1,4 +1,4 @@
-from typing_extensions import Literal, Optional, Annotated, Union
+from typing_extensions import Literal, Optional, Annotated, Union, List
 
 from pydantic import BaseModel, Field, SecretStr
 
@@ -19,6 +19,7 @@ class HiveEndpoint(BaseModel):
     catalog_name: Optional[str] = None
     default_database: Optional[str] = None
     table: str
+    partitioned_by: Optional[List[str]] = None
     hive_conf_dir: Optional[str] = None
     hadoop_conf_dir: Optional[str] = None
 

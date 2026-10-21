@@ -14,7 +14,7 @@ class FraudThreshold(BaseModel):
     high: LevelThreshold
 
     @model_validator(mode="after")
-    def check_hierarchy(self):
+    def validate_hierarchy(self):
         if not (self.low.value < self.medium.value < self.high.value):
             raise ValueError("Threshold values must be ascending: low < medium < high.")
         if not (self.low.score < self.medium.score < self.high.score):

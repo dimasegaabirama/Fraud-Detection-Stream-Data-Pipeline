@@ -28,8 +28,8 @@ class SegmentType(str, Enum):
 
 
 class TransactionDirection(str, Enum):
-    DEBIT = "DEBIT"
-    CREDIT = "CREDIT"
+    IN = "IN"
+    OUT = "OUT"
 
 
 class TransactionStatus(str, Enum):
@@ -64,6 +64,19 @@ class IPType(str, Enum):
     IPV6 = "IPV6"
 
 
-class EnvType(str, Enum):
-    STREAMING = "STREAMING"
-    TABLE = "TABLE"
+class FraudType(str, Enum):
+    AMOUNT = "AMOUNT"
+    DEVICE = "DEVICE"
+    IP_ADDRESS = "IP_ADDRESS"
+    SPEED = "SPEED"
+    VELOCITY = "VELOCITY"
+
+
+class FraudStatus(str, Enum):
+    ALLOW = "ALLOW"
+    OTP = "OTP"
+    BLOCK = "BLOCK"
+    REVIEW = "REVIEW"
+
+
+

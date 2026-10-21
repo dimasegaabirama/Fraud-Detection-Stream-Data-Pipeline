@@ -1,4 +1,6 @@
+from typing_extensions import Optional
 from pydantic import BaseModel
+
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.table import StreamTableEnvironment, TableDescriptor, Schema
 from pyflink.datastream.formats.json import JsonRowDeserializationSchema, JsonRowSerializationSchema
@@ -6,6 +8,8 @@ from pyflink.common import Types
 from pyflink.datastream.connectors.kafka import DeliveryGuarantee, KafkaRecordSerializationSchema, KafkaSink, KafkaSource, KafkaOffsetsInitializer
 
 from models.endpoint import HiveEndpoint, KafkaEndpoint
+from models.transaction import Transaction
+from models.transaction_daily import TransactionDaily
 from src.config.settings import AppSettings
 
 from src.utils.hive_utils import HiveUtils
@@ -127,16 +131,31 @@ class BootstrapInitializer:
                     table_schema.build()
                 )
                 .format("parquet")
-                .partitioned_by()
+                .partitioned_by("year", "month", "day")
                 .option("sink.rolling-policy.file-size", "32MB")
                 .option("sink.rolling-policy.rollover-interval", "20 min")
                 .option("sink.rolling-policy.check-interval", "1 min")
                 .option("auto-compaction", "true")
                 .option("compaction.file-size", "128MB")
-                .option("sink.rolling-policy.check-interval", "1 min")
             )
 
         return None
+
+    def initialize_bootstrap(self):
+        pipeline = self.settings.pipeline
+
+        source_model = Transaction
+        sink_model = TransactionDaily
+
+        for source in pipeline.sources:
+            if isinstance(source, KafkaEndpoint):
+                self.build_kafka_source(source, model=source_model)
+
+        for sink in pipeline.sinks:
+            if isinstance(sink, KafkaEndpoint):
+                self.build_kafka_sink(sink, model=sink_model)
+            elif isinstance(sink, HiveEndpoint):
+                self.build_hive_sink(sink, model=sink_model)
     
 
 

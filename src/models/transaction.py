@@ -1,4 +1,5 @@
-from pydantic import BaseModel, model_validator, Field
+from typing_extensions import Optional
+from pydantic import BaseModel, field_validator, model_validator, Field
 
 from src.models.enums import (
     DeviceType,
@@ -7,7 +8,6 @@ from src.models.enums import (
     TransactionStatus,
     TransactionType,
 )
-
 
 class Transaction(BaseModel):
     event_id: str
@@ -18,30 +18,38 @@ class Transaction(BaseModel):
     segment: str
     transaction_type: str
     direction: str
-    sender_account: str | None = None
-    receiver_account: str | None = None
-    merchant_id: str | None = None
+    sender_account: Optional[str] = None
+    receiver_account: Optional[str] = None
+    merchant_id: Optional[str] = None
     ip_address: str
     device_id: str
     device_type: str
     latitude: float
     longitude: float
     status: str
-    timestamp: str
+    event_timestamp: str
+
+    @field_validator(
+        "status", 
+        "transaction_type", 
+        "direction", 
+        "device_type", 
+        "segment", 
+        mode="before"
+    )
+    @classmethod
+    def normalize_enum_values(cls, v: str) -> str:
+        return v.upper()
 
     @model_validator(mode="after")
     def validate_enum_values(self):
-        TransactionStatus(self.status.upper())
-        TransactionType(self.transaction_type.upper())
-        TransactionDirection(self.direction.upper())
-        DeviceType(self.device_type.upper())
-        SegmentType(self.segment.upper())
+        TransactionStatus(self.status)
+        TransactionType(self.transaction_type)
+        TransactionDirection(self.direction)
+        DeviceType(self.device_type)
+        SegmentType(self.segment)
         
         return self
 
 if __name__ == "__main__":
-    from src.utils.flink_utils import FlinkUtils
-
-    schemas = FlinkUtils.build_flink_schema(Transaction)
-    for schema in schemas:
-        print(schema)
+    pass

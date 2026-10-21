@@ -5,7 +5,7 @@ from pyflink.common import Types
 
 from pydantic import BaseModel, Field
 
-from models.enums import EnvType
+from src.models.enums import EnvType
 
 class FlinkUtils:
 
