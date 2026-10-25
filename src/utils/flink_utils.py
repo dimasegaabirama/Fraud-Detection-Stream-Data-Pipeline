@@ -2,8 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 from pyflink.common import Types
-from pyflink.table import DataTypes
-from pyflink.table import Schema
+from pyflink.table import DataTypes, Schema
 
 
 class FlinkUtils:
@@ -17,9 +16,8 @@ class FlinkUtils:
         ("string", "decimal"): (DataTypes.DECIMAL(18, 2), Types.BIG_DEC()),
     }
 
-    @classmethod
+    @staticmethod
     def _resolve_prop(
-        cls,
         prop: dict[str, Any],
         defs: dict[str, Any],
     ) -> tuple[str, str | None, bool]:
@@ -34,7 +32,7 @@ class FlinkUtils:
             nullable = len(options) != len(prop["anyOf"])
             if len(options) != 1:
                 raise ValueError(f"Complex types not supported: {prop}")
-            t, f, _ = cls._resolve_prop(options[0], defs)
+            t, f, _ = FlinkUtils._resolve_prop(options[0], defs)
             return t, f, nullable
 
         return prop["type"], prop.get("format"), nullable

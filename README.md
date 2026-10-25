@@ -142,6 +142,24 @@ python main.py        # TODO: replace with the real entry point
 
 > Run the entry point as a script rather than `python -m src.rules.amount_rules`. Running a module that is also imported by its package `__init__.py` triggers a `RuntimeWarning` because the module is loaded twice.
 
+### Start all Docker services
+
+From the repository root, run:
+
+```bash
+bash start-all.sh
+```
+
+The script starts Hadoop, Hive, Kafka, PostgreSQL, and Flink in dependency order.
+Hive exposes its metastore database on host port `5432`; the application
+PostgreSQL container exposes port `5433` to avoid a host-port collision.
+
+To stop all services without deleting volumes or the shared Docker network, run:
+
+```bash
+bash stop-all.sh
+```
+
 ## Configuration
 
 | Setting | Location | Default |

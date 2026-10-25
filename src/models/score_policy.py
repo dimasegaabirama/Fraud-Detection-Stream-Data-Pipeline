@@ -21,7 +21,7 @@ class ScorePolicy(BaseModel):
 
     def classify(self, score: int) -> FraudStatus:
         fraud_status = FraudStatus.__members__.values()
-        
+
         for status in fraud_status:
             if status != FraudStatus.BLOCK and score < getattr(self, f"{status}_below"):
                 return status

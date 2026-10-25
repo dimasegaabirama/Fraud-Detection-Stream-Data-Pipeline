@@ -1,9 +1,10 @@
 from copy import deepcopy
 
+from src.models.score_policy import ScorePolicy
 from src.config.rules import FraudRule
 from src.config.settings import AppSettings
-from src.models.enums import FraudType
-from src.models.threshold import FraudThreshold
+from src.models.enums import FraudType, ThresholdLevel
+from src.models.threshold import FraudThreshold, ThresholdResult
 
 
 class BaseRules:
@@ -14,6 +15,7 @@ class BaseRules:
         fraud_type: FraudType,
         **key_select: str,
     ):
+        self.score_policy: ScorePolicy = settings.score_policy
         self.rule: FraudRule = getattr(settings.rules, fraud_type.value)
         self.key_select = key_select
 
@@ -44,31 +46,32 @@ class BaseRules:
         return threshold
 
     @staticmethod
-    def _calculate_score(value: float, threshold: FraudThreshold) -> int:
+    def _calculate_score(value: float, threshold: FraudThreshold) -> tuple[int, ThresholdLevel]:
         if value >= threshold.high.value:
-            return threshold.high.score
+            return threshold.high.score, ThresholdLevel.HIGH
         if value >= threshold.medium.value:
-            return threshold.medium.score
+            return threshold.medium.score, ThresholdLevel.MEDIUM
         if value >= threshold.low.value:
-            return threshold.low.score
-        return 0
+            return threshold.low.score, ThresholdLevel.LOW
+        return 0, ThresholdLevel.NONE
 
     def get_score(self, value: float, **key_select: str) -> int:
         selected_factors = key_select or self.key_select
         threshold = self._calculate_threshold(selected_factors)
         return self._calculate_score(value, threshold)
 
-    def get_result(self, value: float, **key_select: str) -> dict[str, any]:
+    def get_result(self, value: float, **key_select: str) -> ThresholdResult:
         selected_factors = key_select or self.key_select
         threshold = self._calculate_threshold(selected_factors)
         score = self._calculate_score(value, threshold)
 
-        return {
-            "value": value,
-            "score": score,
-            "threshold": threshold.dict(),
-            "key_select": selected_factors,
-        }
+        return ThresholdResult(
+            rule_type="",
+            agg_type=self.rule.aggregation,
+            value=value,
+            score=score[0],
+            level=score[1]
+        )
 
 
 if __name__ == "__main__":

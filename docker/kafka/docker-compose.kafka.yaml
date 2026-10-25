@@ -51,6 +51,9 @@ x-kafka-template: &kafka-template
     retries: 10
     start_period: 30s
 
+  networks:
+    - hadoop_net
+
 
 services:
   kafka-1:
@@ -113,3 +116,7 @@ services:
         condition: service_healthy
       kafka-3:
         condition: service_healthy
+
+networks:
+  hadoop_net:
+    external: true  

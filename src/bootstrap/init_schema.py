@@ -1,11 +1,12 @@
+from collections.abc import Mapping
+
 from pydantic import BaseModel
-from pyflink.common import Configuration
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import (
     KafkaSink,
     KafkaSource,
 )
-from pyflink.table import Schema, StreamTableEnvironment, TableDescriptor
+from pyflink.table import StreamTableEnvironment, TableDescriptor
 
 from src.config.settings import AppSettings
 from src.models.endpoint import HiveEndpoint, KafkaEndpoint
@@ -24,13 +25,19 @@ class BootstrapInitializer:
         self.env = env
         self.t_env = StreamTableEnvironment.create(env)
 
-    def build_kafka_source(self, source: KafkaEndpoint, model: BaseModel) -> KafkaSource:
+    def build_kafka_source(
+        self, source: KafkaEndpoint, model: type[BaseModel]
+    ) -> KafkaSource:
         return KafkaUtils.build_source(source, model)
 
-    def build_kafka_sink(self, sink: KafkaEndpoint, model: BaseModel) -> KafkaSink:
+    def build_kafka_sink(
+        self, sink: KafkaEndpoint, model: type[BaseModel]
+    ) -> KafkaSink:
         return KafkaUtils.build_sink(sink, model)
 
-    def build_hive_sink(self, sink: HiveEndpoint, model: BaseModel) -> None:
+    def build_hive_sink(
+        self, sink: HiveEndpoint, model: type[BaseModel]
+    ) -> None:
         if sink.catalog_name is None or sink.default_database is None:
             raise ValueError(
                 "Hive sink requires catalog_name and default_database"
@@ -39,22 +46,23 @@ class BootstrapInitializer:
         version = self.settings.hive.version
         table_name = sink.table
 
-        base_hive = HiveUtils(
+        catalog = HiveUtils.create_or_replace_catalog(
             self.t_env,
-            table_name=table_name,
-            catalog_name=sink.catalog_name,
-            database_name=sink.default_database,
+            sink.catalog_name,
             hive_conf_dir=sink.hive_conf_dir,
             hadoop_conf_dir=sink.hadoop_conf_dir,
-            hive_version=version
+            hive_version=version,
         )
 
+        HiveUtils.create_or_replace_database(
+            self.t_env,
+            sink.catalog_name,
+            sink.default_database,
+            catalog=catalog,
+        )
         table_schema = FlinkUtils.build_table_schema(model)
 
-        base_hive.create_or_replace_catalog()
-        base_hive.create_or_replace_database()
-
-        with base_hive.use_hive_dialect() as hive_dialect:
+        with HiveUtils.use_hive_dialect(self.t_env) as hive_dialect:
             hive_dialect.create_table(
                 table_name,
                 TableDescriptor.for_connector("hive")
@@ -70,38 +78,53 @@ class BootstrapInitializer:
                 .option("compaction.file-size", "128MB")
             )
 
-    def initialize_bootstrap(self) -> tuple[list[KafkaSource], list[KafkaSink]]:
+    def initialize_source(
+        self,
+        source_models: Mapping[str, type[BaseModel]]
+    ) -> dict[str, KafkaSource]:
         pipeline = self.settings.pipeline
-
-        kafka_source_model = Transaction
-        hive_sink_model = TransactionDaily
-        kafka_sink_model = TransactionFraudAlert
-
-        sources = []
-        sinks = []
+        
+        sources = {}
 
         for source in pipeline.sources:
-            if isinstance(source, KafkaEndpoint):
-                sources.append(
-                    self.build_kafka_source(source, model=kafka_source_model)
-                )
+            try:
+                if isinstance(source, KafkaEndpoint):
+                    model = source_models[source.name]
+                    sources[source.name] = self.build_kafka_source(source, model=model)
+                else:
+                    raise ValueError(f"Unsupported source type: {type(source)}")
+            except KeyError as exc:
+                raise ValueError(
+                    f"No model configured for Kafka/Hive source '{source.name}'"
+                ) from exc
+
+        return sources
+
+    def initialize_sink(
+        self,
+        source_models: Mapping[str, type[BaseModel]]
+    ) -> dict[str, KafkaSink | None]:
+        pipeline = self.settings.pipeline
+        
+        sinks = {}
 
         for sink in pipeline.sinks:
-            if isinstance(sink, KafkaEndpoint):
-                sinks.append(
-                    self.build_kafka_sink(sink, model=kafka_sink_model)
-                )
-            elif isinstance(sink, HiveEndpoint):
-                self.build_hive_sink(sink, model=hive_sink_model)
+            try:
+                if isinstance(sink, KafkaEndpoint):
+                    model = source_models[sink.name]
+                    sinks[sink.name] = self.build_kafka_sink(sink, model=model)
 
-        return sources, sinks
+                elif isinstance(sink, HiveEndpoint):
+                    model = source_models[sink.name]
+                    sinks[sink.name] = self.build_hive_sink(sink, model=model)
+                else:
+                    raise ValueError(f"Unsupported sink type: {type(sink)}")
+            except KeyError as exc:
+                raise ValueError(
+                    f"No model configured for Kafka/Hive sink '{sink.name}'"
+                ) from exc
+
+        return sinks
 
 if __name__ == "__main__":
-    config = Configuration()
-    t_env = StreamExecutionEnvironment.get_execution_environment(config)
-
-    pipeline_settings = AppSettings()
-    kafka_source = pipeline_settings.pipeline.sources
-
-    sources, sinks = BootstrapInitializer(pipeline_settings, t_env).initialize_bootstrap()
-    
+    pass

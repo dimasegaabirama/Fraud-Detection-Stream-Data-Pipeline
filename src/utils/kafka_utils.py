@@ -24,7 +24,11 @@ class KafkaUtils:
         )
 
     @classmethod
-    def build_source(cls, endpoint: KafkaEndpoint, model: type[BaseModel]) -> KafkaSource:
+    def build_source(
+        cls,
+        endpoint: KafkaEndpoint,
+        model: type[BaseModel],
+    ) -> KafkaSource:
         deserializer = (
             JsonRowDeserializationSchema.builder()
             .type_info(FlinkUtils.build_row_type_info(model))
@@ -53,7 +57,11 @@ class KafkaUtils:
         return source_builder.build()
 
     @classmethod
-    def build_sink(cls, endpoint: KafkaEndpoint, model: type[BaseModel]) -> KafkaSink:
+    def build_sink(
+        cls,
+        endpoint: KafkaEndpoint,
+        model: type[BaseModel],
+    ) -> KafkaSink:
         serializer = (
             JsonRowSerializationSchema.builder()
             .with_type_info(FlinkUtils.build_row_type_info(model))

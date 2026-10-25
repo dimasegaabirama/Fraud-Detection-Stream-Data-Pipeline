@@ -6,4 +6,4 @@ class AmountRules(BaseRules):
 
     def evaluate(self, value: float, **key_select: str) -> int:
         score = self.get_score(value, **key_select)
-        if 
+        return score

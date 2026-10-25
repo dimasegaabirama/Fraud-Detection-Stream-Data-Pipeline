@@ -23,7 +23,7 @@ services:
   hive-server2:
     build:
       context: .
-      dockerfile: dockerfile.base.hive
+      dockerfile: ${PROJECT_DIR}/docker/hive/dockerfile.base.hive
     container_name: hive-server2
     hostname: hive-server2
     restart: always
