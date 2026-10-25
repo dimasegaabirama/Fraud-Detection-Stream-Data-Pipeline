@@ -17,6 +17,7 @@ hive:
   warehouse_dir: "/opt/hive/warehouse"
 
 pipeline:
+  tz: "Asia/Jakarta"
   catalog: "fraud_detection_catalog"
   default_database: "fraud_detection"
   parallelism: 4

@@ -10,9 +10,6 @@ from pyflink.table import StreamTableEnvironment, TableDescriptor
 
 from src.config.settings import AppSettings
 from src.models.endpoint import HiveEndpoint, KafkaEndpoint
-from src.models.transaction import Transaction
-from src.models.transaction_daily import TransactionDaily
-from src.models.transaction_fraud import TransactionFraudAlert
 from src.utils.flink_utils import FlinkUtils
 from src.utils.hive_utils import HiveUtils
 from src.utils.kafka_utils import KafkaUtils
@@ -75,7 +72,8 @@ class BootstrapInitializer:
                 .option("sink.rolling-policy.rollover-interval", "20 min")
                 .option("sink.rolling-policy.check-interval", "1 min")
                 .option("auto-compaction", "true")
-                .option("compaction.file-size", "128MB")
+                .option("compaction.file-size", "128MB"),
+                ignoreIfExists=True
             )
 
     def initialize_source(
@@ -102,7 +100,7 @@ class BootstrapInitializer:
 
     def initialize_sink(
         self,
-        source_models: Mapping[str, type[BaseModel]]
+        sink_models: Mapping[str, type[BaseModel]]
     ) -> dict[str, KafkaSink | None]:
         pipeline = self.settings.pipeline
         
@@ -111,11 +109,11 @@ class BootstrapInitializer:
         for sink in pipeline.sinks:
             try:
                 if isinstance(sink, KafkaEndpoint):
-                    model = source_models[sink.name]
+                    model = sink_models[sink.name]
                     sinks[sink.name] = self.build_kafka_sink(sink, model=model)
 
                 elif isinstance(sink, HiveEndpoint):
-                    model = source_models[sink.name]
+                    model = sink_models[sink.name]
                     sinks[sink.name] = self.build_hive_sink(sink, model=model)
                 else:
                     raise ValueError(f"Unsupported sink type: {type(sink)}")

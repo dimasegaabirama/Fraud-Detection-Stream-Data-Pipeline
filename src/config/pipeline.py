@@ -5,6 +5,7 @@ from src.models.endpoint import Endpoint, KafkaEndpoint, HiveEndpoint
 
 
 class PipelineSettings(BaseModel):
+    tz: str
     catalog: str
     default_database: str
     parallelism: int = Field(gt=0)

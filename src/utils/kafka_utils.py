@@ -40,6 +40,7 @@ class KafkaUtils:
             .set_bootstrap_servers(endpoint.bootstrap_servers)
             .set_topics(endpoint.topic)
             .set_starting_offsets(KafkaOffsetsInitializer.latest())
+            .set_unbounded(KafkaOffsetsInitializer.latest())
             .set_property("security.protocol", "SASL_PLAINTEXT")
             .set_property("sasl.mechanism", "PLAIN")
             .set_property(
