@@ -8,13 +8,9 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from src.config.hadoop import HadoopSettings
-from src.config.hive import HiveSettings
-from src.config.kafka import KafkaSettings
-from src.config.pipeline import PipelineSettings
-from src.config.rules import RulesSettings
-
+from src.config import HadoopSettings, HiveSettings, KafkaSettings, PipelineSettings, RulesSettings
 from src.models.endpoint import HiveEndpoint, KafkaEndpoint
+from src.models.score_policy import ScorePolicy
 
 
 class AppSettings(BaseSettings):
@@ -23,6 +19,7 @@ class AppSettings(BaseSettings):
     hive: HiveSettings
     pipeline: PipelineSettings
     rules: RulesSettings
+    score_policy: ScorePolicy
 
     model_config = SettingsConfigDict(
         env_file=".env",

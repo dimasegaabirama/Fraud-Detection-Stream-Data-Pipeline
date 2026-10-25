@@ -1,8 +1,12 @@
-# Fraud Detection Stream Data Pipeline
+# Fraud Detection Streaming Pipeline
 
-A rule-based fraud detection pipeline for streaming transaction data. Transactions are aggregated in **5-minute windows** per user, evaluated against configurable rules by **segment** and **direction**, and turned into a fraud score.
+A real-time fraud detection pipeline built with Apache Kafka and Apache Flink. The system consumes transaction events, converts them into typed streaming records, aggregates behavioral signals over configurable time windows, and evaluates them against rule-based fraud thresholds.
 
-> **Note:** parts marked `TODO` are placeholders. Adjust them to match the actual implementation.
+The pipeline is designed to demonstrate the core challenges of streaming fraud detection: event-time processing, configurable rules, multi-dimensional transaction behavior, and reliable sinks for both analytical storage and fraud alerts. Hive is used for table-based transaction storage, while Kafka carries the streaming input and alert output.
+
+## Project Summary
+
+This project processes financial transactions in motion instead of waiting for batch jobs. Each transaction can be evaluated using signals such as transaction amount, device usage, IP activity, transaction velocity, and geographic movement. Rules can be adjusted by segment, direction, transaction type, and severity level without changing the streaming architecture.
 
 ## Features
 
@@ -16,22 +20,23 @@ A rule-based fraud detection pipeline for streaming transaction data. Transactio
 ## Architecture
 
 ```
-Transactions (TODO: Kafka / files)
+Transactions -> Kafka
         |
         v
-Stream processing  (TODO: Flink / Spark)
-  - event-time + watermark
-  - 5-minute window per user_id + direction
-  - metrics: SUM(amount), COUNT(DISTINCT device_id),
-             COUNT(DISTINCT ip_address), COUNT(*), ...
+Apache Flink
+        - typed Kafka source and sink
+        - event-time window processing
+        - configurable aggregation and rule evaluation
         |
         v
-Rule engine (segment x direction)
-  - compare each metric with low / medium / high threshold
-  - produce score per rule
+Rule engine
+        - segment and direction-aware thresholds
+        - low, medium, and high severity levels
+        - fraud score generation
         |
-        v
-Fraud score / alerts  ->  PostgreSQL  (TODO: alert sink)
+                                +--> Hive transaction tables
+                                |
+                                +--> Kafka fraud alerts
 ```
 
 ## Data Schema
@@ -145,6 +150,21 @@ python main.py        # TODO: replace with the real entry point
 | Minimum active days | `src/config/fraud_rules.py` (`MIN_ACTIVE_DAYS`) | TODO |
 | Minimum transaction count | `src/config/fraud_rules.py` (`MIN_TXN_COUNT`) | TODO |
 | Segment thresholds | `src/rules/*_rules.py` | see rule classes |
+
+### Aggregate score policy
+
+Each enabled rule contributes a score of `0`, `10`, `50`, or `80`. The scores
+are summed across the rules before determining the transaction status:
+
+| Total score | Status |
+|---:|---|
+| `0-49` | `allow` |
+| `50-99` | `otp` |
+| `100-149` | `review` |
+| `150+` | `block` |
+
+These limits are configured in `src/config/config.yaml` under `score_policy`.
+With the current five rules, the maximum possible aggregate score is `400`.
 
 ## Sample Data
 

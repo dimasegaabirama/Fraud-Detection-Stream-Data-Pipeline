@@ -38,6 +38,12 @@ pipeline:
       table: "daily_transactions"
       partitioned_by: ["year", "month", "day"]
 
+score_policy:
+  # The five rules can contribute up to 80 points each (maximum total: 400).
+  # Scores are summed before applying this policy.
+  allow_below: 50
+  otp_below: 100
+  review_below: 150
 
 rules:
   amount:
@@ -52,8 +58,8 @@ rules:
       high: {value: 8000, score: 80}
     factors:
       direction:
-        credit: 1.0
-        debit: 1.2
+        out: 1.0
+        in: 1.2
       segment:
         business: 1.0
         individual: 1.0
@@ -78,8 +84,8 @@ rules:
       high: {value: 5.0, score: 80}
     factors:
       direction:
-        credit: 1.0
-        debit: 1.2
+        out: 1.0
+        in: 1.2
       transaction_type:
         cashout: 1.0
         payment: 1.0
@@ -88,7 +94,7 @@ rules:
         transfer: 1.0
         withdrawal: 1.0
 
-  ip:
+  ip_address:
     enabled: true
     aggregation: "count"
     group_key: ["user_id", "ip_address", "segment", "transaction_type"]
@@ -139,8 +145,8 @@ rules:
       high: {value: 20.0, score: 80}
     factors:
       direction:
-        credit: 1.2
-        debit: 1.0
+        out: 1.2
+        in: 1.0
       segment:
         business: 2.0
         retail: 1.3

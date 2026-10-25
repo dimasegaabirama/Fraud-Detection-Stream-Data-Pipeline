@@ -1,7 +1,6 @@
 import pendulum
 
-from typing_extensions import Optional
-from pydantic import BaseModel, model_validator, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from src.models.enums import (
     DeviceType,
     SegmentType,
@@ -10,28 +9,30 @@ from src.models.enums import (
     TransactionType
 )
 
+from datetime import datetime
+
 class TransactionDaily(BaseModel):
     event_id: str
     transaction_id: str
     user_id: str
-    segment: str
-    transaction_type: str
-    direction: str
-    sender_account: Optional[str] = None
-    receiver_account: Optional[str] = None
-    merchant_id: Optional[str] = None
+    segment: SegmentType
+    transaction_type: TransactionType
+    direction: TransactionDirection
+    sender_account: str | None = None
+    receiver_account: str | None = None
+    merchant_id: str | None = None
     ip_address: str
     device_id: str
-    device_type: str
+    device_type: DeviceType
     currency: str = Field(min_length=3, max_length=3, description="Currency must be a valid 3-letter ISO code.")
     amount: float = Field(gt=0, description="Transaction amount must be greater than zero.")
     latitude: float
     longitude: float
-    status: str
+    status: TransactionStatus
     day: str
     month: str
     year: str
-    event_timestamp: str
+    event_timestamp: datetime
 
     @field_validator("event_timestamp", mode="after")
     @classmethod
@@ -39,20 +40,7 @@ class TransactionDaily(BaseModel):
         return pendulum.parse(value)
 
 
-    @model_validator(mode="after")
-    def validate_enum_values(self):
-        TransactionStatus(self.status)
-        TransactionType(self.transaction_type)
-        TransactionDirection(self.direction)
-        DeviceType(self.device_type)
-        SegmentType(self.segment)
-        
-        return self
-
-
 if __name__ == "__main__":
-
-    from datetime import datetime
 
     txn_daily = TransactionDaily(
         event_id="evt_123",
@@ -78,6 +66,6 @@ if __name__ == "__main__":
         event_timestamp="2024-01-02 12:00:00"
     )
 
-    txn_daily_dict = txn_daily.event_timestamp
+    txn_daily_dict = txn_daily.dict()
 
     print(txn_daily_dict)

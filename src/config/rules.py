@@ -1,37 +1,39 @@
-from typing_extensions import Optional, List, Dict
-from pathlib import Path
+from pydantic import BaseModel, Field, model_validator
 
-from pydantic import BaseModel, model_validator
-
-from models.enums import Aggregation
+from src.models.enums import Aggregation, FraudType
 from src.models.threshold import FraudThreshold
 
 
 class FraudRule(BaseModel):
     enabled: bool = True
     aggregation: Aggregation
-    group_key: List[str]
-    agg_fields: List[str]
-    window_minutes: Optional[int] = None
+    group_key: list[str]
+    agg_fields: list[str]
+    window_minutes: int | None = None
     threshold: FraudThreshold
-    factors: Dict[str, Dict[str, float]] = {}
-
-    @model_validator(mode="before")
-    @classmethod
-    def verify_aggregation(cls, values):
-        aggregation = values.get("aggregation").upper()
-        values["aggregation"] = Aggregation(aggregation)
-        return values
+    factors: dict[str, dict[str, float]] = Field(default_factory=dict)
 
 
 class RulesSettings(BaseModel):
     amount: FraudRule
     device: FraudRule
-    ip: FraudRule
-    device: FraudRule
+    ip_address: FraudRule
     speed: FraudRule
     velocity: FraudRule
 
+    @model_validator(mode="before")
+    def validate_keys(cls, values):
+        keys = values.keys()
+        if set(keys) != set(FraudType.__members__.values()):
+            raise ValueError(
+                f"Invalid keys in rules settings. Expected keys: {list(FraudType.__members__.keys())}, \n"
+                f"but got: {list(keys)}"
+            )
+        return values
+
 
 if __name__ == "__main__":
-    pass
+    from src.config.settings import AppSettings
+
+    settings = AppSettings()
+    print(FraudType.__members__)

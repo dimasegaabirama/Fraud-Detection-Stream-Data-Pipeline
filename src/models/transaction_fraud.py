@@ -1,46 +1,28 @@
-import pendulum
-
-from typing_extensions import Optional
-from pydantic import BaseModel, model_validator, Field, field_validator
+from pydantic import BaseModel
 from src.models.enums import (
     DeviceType,
     SegmentType,
     TransactionDirection,
-    TransactionStatus,
     TransactionType,
     FraudType,
     FraudStatus
 )
 
-class TransactionFraud(BaseModel):
+class TransactionFraudAlert(BaseModel):
     event_id: str
     transaction_id: str
     user_id: str
-    segment: str
-    transaction_type: str
-    direction: str
-    fraud_type: str
-    fraud_status: str
+    segment: SegmentType
+    transaction_type: TransactionType
+    direction: TransactionDirection
+    device_type: DeviceType
+    ip_address: str
+    speed: float | None = None
+    fraud_type: FraudType
+    fraud_status: FraudStatus
     fraud_value: float
     score: float
 
-    @field_validator(
-        "fraud_type",
-        "fraud_status",
-        mode="before"
-    )
-    @classmethod
-    def normalize_enum_values(cls, v: str) -> str:
-        return v.upper()
 
-    @model_validator(mode="after")
-    def validate_enum_values(self):
-        FraudType(self.fraud_type)
-        FraudStatus(self.fraud_status)
-        TransactionType(self.transaction_type)
-        TransactionDirection(self.direction)
-        SegmentType(self.segment)
-        
-        return self
-
-
+if __name__ == "__main__":
+    pass

@@ -55,4 +55,4 @@ if __name__ == "__main__":
         ]
     )
 
-    print(settings)
+    print(settings.model_fields_set)

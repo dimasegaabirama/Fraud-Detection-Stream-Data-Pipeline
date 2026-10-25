@@ -1,24 +1,29 @@
+from collections.abc import Callable
+
 from pyflink.table import ScalarFunction
 
-from models.enums import Direction, Segment, TransactionType
-from src.models.threshold import FraudThreshold
 from src.rules.base_rules import BaseRules
 
 
 class BaseThresholdUDF(ScalarFunction):
-    def __init__(self, rules_factory: BaseRules):
+    def __init__(self, rules_factory: Callable[[], BaseRules]):
         super().__init__()
         self.rules_factory = rules_factory
-        self.rules: BaseRules = None
+        self.rules: BaseRules | None = None
 
     def open(self, function_context):
         self.rules: BaseRules = self.rules_factory()
 
     def eval(
         self, segment: str, direction: str, transaction_type: str, value: float
-    ) -> FraudThreshold:
+    ) -> int:
+        if self.rules is None:
+            raise RuntimeError("BaseThresholdUDF has not been opened")
         return self.rules.get_score(
-            Segment(segment), Direction(direction), TransactionType(transaction_type), value
+            value,
+            segment=segment,
+            direction=direction,
+            transaction_type=transaction_type,
         )
 
 

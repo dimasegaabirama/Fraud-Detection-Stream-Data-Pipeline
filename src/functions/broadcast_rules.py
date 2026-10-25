@@ -1,10 +1,10 @@
 from pyflink.datastream.functions import BroadcastProcessFunction
 from pyflink.datastream.state import MapStateDescriptor, Types
 
-broadcast_state_descriptor = MapStateDescriptor("rules_state", Types.STRING, Types.STRING)
+broadcast_state_descriptor = MapStateDescriptor("rules_state", Types.STRING, Types.PICKLED_BYTE_ARRAY)
 
 
-class BroadcastFunction(BroadcastProcessFunction):
+class BroadcastRulesFunction(BroadcastProcessFunction):
     def open(self, runtime_context):
         self.broadcast_state_descriptor = broadcast_state_descriptor
 
@@ -16,3 +16,4 @@ class BroadcastFunction(BroadcastProcessFunction):
 
     def process_element(self, value, ctx):
         broadcast_state = ctx.get_broadcast_state(self.broadcast_state_descriptor)
+

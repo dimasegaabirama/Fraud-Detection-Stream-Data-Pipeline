@@ -2,81 +2,78 @@ from enum import Enum
 
 
 class FlowDirection(str, Enum):
-    SINK = "SINK"
-    SOURCE = "SOURCE"
-
-
-class ThresholdLevel(str, Enum):
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
+    SINK = "sink"
+    SOURCE = "source"
 
 
 class Aggregation(str, Enum):
-    AVG = "AVG"
-    SUM = "SUM"
-    MAX = "MAX"
-    MIN = "MIN"
-    COUNT = "COUNT"
-    CUSTOM = "CUSTOM"
+    AVG = "avg"
+    SUM = "sum"
+    MAX = "max"
+    MIN = "min"
+    COUNT = "count"
+    CUSTOM = "custom"
 
 
 class SegmentType(str, Enum):
-    RETAIL = "RETAIL"
-    BUSINESS = "BUSINESS"
-    INDIVIDUAL = "INDIVIDUAL"
+    RETAIL = "retail"
+    BUSINESS = "business"
+    INDIVIDUAL = "individual"
 
 
 class TransactionDirection(str, Enum):
-    IN = "IN"
-    OUT = "OUT"
+    IN = "in"
+    OUT = "out"
 
 
 class TransactionStatus(str, Enum):
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-    RESERVED = "RESERVED"
+    SUCCESS = "success"
+    FAILED = "failed"
+    RESERVED = "reserved"
 
 
 class TransactionType(str, Enum):
-    TRANSFER = "TRANSFER"
-    PAYMENT = "PAYMENT"
-    CASHOUT = "CASHOUT"
-    TOP_UP = "TOP_UP"
-    WITHDRAWAL = "WITHDRAWAL"
-    REFUND = "REFUND"
+    TRANSFER = "transfer"
+    PAYMENT = "payment"
+    CASHOUT = "cashout"
+    TOP_UP = "top_up"
+    WITHDRAWAL = "withdrawal"
+    REFUND = "refund"
 
 
 class FraudStatus(str, Enum):
-    NORMAL = "NORMAL"
-    REVIEW = "REVIEW"
-    FRAUD = "FRAUD"
+    ALLOW = "allow"
+    OTP = "otp"
+    BLOCK = "block"
+    REVIEW = "review"
 
 
 class DeviceType(str, Enum):
-    IOS = "IOS"
-    ANDROID = "ANDROID"
-    WEB = "WEB"
+    IOS = "ios"
+    ANDROID = "android"
+    WEB = "web"
 
 
 class IPType(str, Enum):
-    IPV4 = "IPV4"
-    IPV6 = "IPV6"
+    IPV4 = "ipv4"
+    IPV6 = "ipv6"
 
 
 class FraudType(str, Enum):
-    AMOUNT = "AMOUNT"
-    DEVICE = "DEVICE"
-    IP_ADDRESS = "IP_ADDRESS"
-    SPEED = "SPEED"
-    VELOCITY = "VELOCITY"
+    AMOUNT = "amount"
+    DEVICE = "device"
+    IP_ADDRESS = "ip_address"
+    SPEED = "speed"
+    VELOCITY = "velocity"
 
 
-class FraudStatus(str, Enum):
-    ALLOW = "ALLOW"
-    OTP = "OTP"
-    BLOCK = "BLOCK"
-    REVIEW = "REVIEW"
+class ThresholdLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    
 
-
-
+class SchemaLevel(str, Enum):
+    CATALOG = "catalog"
+    DATABASE = "database"
+    TABLE = "table"

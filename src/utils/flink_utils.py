@@ -1,14 +1,12 @@
-from typing_extensions import Union, Dict, Tuple, Optional, Literal
+from typing import Any, Literal
 
-from pyflink.table import DataTypes
+from pydantic import BaseModel
 from pyflink.common import Types
+from pyflink.table import DataTypes
+from pyflink.table import Schema
 
-from pydantic import BaseModel, Field
-
-from src.models.enums import EnvType
 
 class FlinkUtils:
-
     JSON_TO_FLINK = {
         ("string", None): (DataTypes.STRING(), Types.STRING()),
         ("integer", None): (DataTypes.BIGINT(), Types.LONG()),
@@ -16,11 +14,15 @@ class FlinkUtils:
         ("boolean", None): (DataTypes.BOOLEAN(), Types.BOOLEAN()),
         ("string", "date-time"): (DataTypes.TIMESTAMP(3), Types.SQL_TIMESTAMP()),
         ("string", "date"): (DataTypes.DATE(), Types.SQL_DATE()),
-        ("string", "decimal"): (DataTypes.DECIMAL(18, 2), Types.BIG_DEC())
+        ("string", "decimal"): (DataTypes.DECIMAL(18, 2), Types.BIG_DEC()),
     }
 
     @classmethod
-    def _resolve_prop(cls, prop: dict, defs: dict) -> Tuple[str, Union[str, None], bool]:
+    def _resolve_prop(
+        cls,
+        prop: dict[str, Any],
+        defs: dict[str, Any],
+    ) -> tuple[str, str | None, bool]:
         nullable = False
 
         if "$ref" in prop:
@@ -37,9 +39,12 @@ class FlinkUtils:
 
         return prop["type"], prop.get("format"), nullable
 
-
     @classmethod
-    def build_flink_schema(cls, model: BaseModel, env_type: Optional[Literal["table", "streaming"]] = None) -> Dict[str, Tuple]:
+    def build_flink_schema(
+        cls,
+        model: type[BaseModel],
+        env_type: Literal["table", "streaming"] | None = None,
+    ) -> list[tuple[str, Any]] | list[tuple[str, Any, Any]]:
         schema = model.model_json_schema(mode="serialization")
         defs = schema.get("$defs", {})
         required = set(schema.get("required", []))
@@ -49,16 +54,37 @@ class FlinkUtils:
             t, f, nullable = cls._resolve_prop(prop, defs)
             try:
                 data_type, type_info = cls.JSON_TO_FLINK[(t, f)]
-            except KeyError:
-                raise ValueError(f"Type not mapped: field={name}, type={t}, format={f}")
+            except KeyError as exc:
+                raise ValueError(
+                    f"Type not mapped: field={name}, type={t}, format={f}"
+                ) from exc
             nullable = nullable or name not in required
             fields.append((name, data_type if nullable else data_type.not_null(), type_info))
 
-        if env_type is not None:
-            env_type = EnvType(env_type.upper())
-            fields = {
-                EnvType.STREAMING: [(x[0], x[2]) for x in fields],
-                EnvType.TABLE: [(x[0], x[1]) for x in fields],
-            }
-            return fields[env_type]
+        if env_type == "streaming":
+            return [(name, type_info) for name, _, type_info in fields]
+        if env_type == "table":
+            return [(name, data_type) for name, data_type, _ in fields]
         return fields
+
+    @classmethod
+    def build_row_type_info(cls, model: type[BaseModel]):
+        schema = cls.build_flink_schema(model, "streaming")
+        return Types.ROW_NAMED(
+            [name for name, _ in schema],
+            [type_info for _, type_info in schema],
+        )
+
+    @classmethod
+    def build_table_schema(cls, model: type[BaseModel]):
+        fields = cls.build_flink_schema(model, "table")
+        return Schema.new_builder().from_fields(
+            [name for name, _ in fields],
+            [data_type for _, data_type in fields],
+        )
+
+
+if __name__ == "__main__":
+    from src.models.transaction_fraud import TransactionFraudAlert
+
+    print(FlinkUtils.build_flink_schema(TransactionFraudAlert, "table"))

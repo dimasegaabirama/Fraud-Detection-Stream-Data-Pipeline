@@ -1,8 +1,5 @@
 from pydantic import BaseModel, model_validator
 
-from models.enums import SegmentType, TransactionDirection, TransactionStatus
-
-
 class LevelThreshold(BaseModel):
     value: float = 0.0
     score: int = 0
@@ -20,11 +17,3 @@ class FraudThreshold(BaseModel):
         if not (self.low.score < self.medium.score < self.high.score):
             raise ValueError("Score values must be ascending: low < medium < high.")
         return self
-
-
-class FraudResult(BaseModel):
-    user_id: str
-    segment: SegmentType
-    direction: TransactionDirection
-    score: int
-    status: TransactionStatus

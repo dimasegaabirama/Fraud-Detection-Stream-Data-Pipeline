@@ -1,7 +1,5 @@
 from pyflink.table.types import TimestampType
 
-from models.enums import Segment
-from src.models.threshold import FraudThreshold
 from src.udf.base_threshold_udf import BaseThresholdUDF
 
 
@@ -45,9 +43,11 @@ class SpeedThresholdUDF(BaseThresholdUDF):
         lon_2: float,
         t1: TimestampType,
         t2: TimestampType,
-    ) -> FraudThreshold:
+    ) -> int:
         speed = self.calculate_speed(lat_1, lon_1, lat_2, lon_2, t1, t2)
-        return self.rules.get_score(Segment(segment), speed)
+        if self.rules is None:
+            raise RuntimeError("SpeedThresholdUDF has not been opened")
+        return self.rules.get_score(speed, segment=segment)
 
 
 if __name__ == "__main__":
