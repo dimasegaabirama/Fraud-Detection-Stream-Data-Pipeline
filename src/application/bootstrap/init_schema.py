@@ -6,15 +6,14 @@ from pyflink.datastream.connectors.kafka import (
     KafkaSink,
     KafkaSource,
 )
-from pyflink.table import StreamTableEnvironment, TableDescriptor, Table
+from pyflink.table import StreamTableEnvironment, Table, TableDescriptor
 
+from src.application.bootstrap.registry import SINK_REGISTRY, SOURCE_REGISTRY
 from src.config.settings import AppSettings
 from src.models.endpoint import HiveEndpoint, KafkaEndpoint
 from src.utils.flink_utils import FlinkUtils
 from src.utils.hive_utils import HiveUtils
 from src.utils.kafka_utils import KafkaUtils
-
-from src.bootstrap.registry import SOURCE_REGISTRY, SINK_REGISTRY
 
 
 class BootstrapInitializer:

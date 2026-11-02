@@ -10,9 +10,7 @@ class ScorePolicy(BaseModel):
 
     @model_validator(mode="after")
     def validate_order(self):
-        if not (
-            0 <= self.allow_below < self.otp_below < self.review_below
-        ):
+        if not (0 <= self.allow_below < self.otp_below < self.review_below):
             raise ValueError(
                 "Score policy thresholds must be ordered: "
                 "0 <= allow_below < otp_below < review_below."

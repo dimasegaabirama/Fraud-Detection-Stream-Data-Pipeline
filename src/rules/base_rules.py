@@ -1,3 +1,4 @@
+from abc import ABC
 from copy import deepcopy
 
 from src.models.score_policy import ScorePolicy
@@ -7,22 +8,23 @@ from src.models.enums import FraudType, ThresholdLevel
 from src.models.threshold import FraudThreshold, ThresholdResult
 
 
-class BaseRules:
+class BaseRules(ABC):
+
+    FRAUD_TYPE: FraudType
 
     def __init__(
         self,
         settings: AppSettings,
-        fraud_type: FraudType,
-        **key_select: str,
+        **key_values: str,
     ):
         self.score_policy: ScorePolicy = settings.score_policy
-        self.rule: FraudRule = getattr(settings.rules, fraud_type.value)
-        self.key_select = key_select
+        self.rule: FraudRule = getattr(settings.rules, self.FRAUD_TYPE.value)
+        self.key_values = key_values
 
 
-    def _calculate_multiplier(self, key_select: dict[str, str]) -> float:
+    def _calculate_multiplier(self, key_values: dict[str, str]) -> float:
         multiplier = 1.0
-        for category, selected_value in key_select.items():
+        for category, selected_value in key_values.items():
             mapping = self.rule.factors.get(category)
             if mapping is None:
                 raise ValueError(f"Unknown factor category: {category}")
@@ -36,9 +38,9 @@ class BaseRules:
 
         return multiplier
 
-    def _calculate_threshold(self, key_select: dict[str, str]) -> FraudThreshold:
+    def _calculate_threshold(self, key_values: dict[str, str]) -> FraudThreshold:
         threshold = deepcopy(self.rule.threshold)
-        multiplier = self._calculate_multiplier(key_select)
+        multiplier = self._calculate_multiplier(key_values)
 
         for level in (threshold.low, threshold.medium, threshold.high):
             level.value *= multiplier
@@ -55,13 +57,13 @@ class BaseRules:
             return threshold.low.score, ThresholdLevel.LOW
         return 0, ThresholdLevel.NONE
 
-    def get_score(self, value: float, **key_select: str) -> int:
-        selected_factors = key_select or self.key_select
+    def get_score(self, value: float, **key_values: str) -> int:
+        selected_factors = key_values or self.key_values
         threshold = self._calculate_threshold(selected_factors)
         return self._calculate_score(value, threshold)
 
-    def get_result(self, value: float, **key_select: str) -> ThresholdResult:
-        selected_factors = key_select or self.key_select
+    def get_result(self, value: float, **key_values: str) -> ThresholdResult:
+        selected_factors = key_values or self.key_values
         threshold = self._calculate_threshold(selected_factors)
         score = self._calculate_score(value, threshold)
 

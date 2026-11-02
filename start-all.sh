@@ -28,6 +28,7 @@ start_compose_stack() {
     docker compose \
         --project-directory "$PROJECT_DIR" \
         --file "$PROJECT_DIR/$compose_file" \
+        --env-file "$PROJECT_DIR/.env" \
         up -d
 
     sleep 5

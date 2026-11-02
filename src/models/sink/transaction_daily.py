@@ -1,70 +1,68 @@
+from datetime import date, datetime
 from decimal import Decimal
 
-import pendulum
+from pydantic import BaseModel, Field
 
-from pydantic import BaseModel, Field, field_validator
 from src.models.enums import (
     DeviceType,
     SegmentType,
     TransactionDirection,
     TransactionStatus,
-    TransactionType
+    TransactionType,
 )
 
-from datetime import datetime
 
 class TransactionDaily(BaseModel):
-    event_id: str
     transaction_id: str
     user_id: str
+    event_date: date
+    event_timestamp: datetime
     segment: SegmentType
     transaction_type: TransactionType
     direction: TransactionDirection
+    status: TransactionStatus
     sender_account: str | None = None
     receiver_account: str | None = None
     merchant_id: str | None = None
-    ip_address: str
+    currency: str = Field(
+        min_length=3,
+        max_length=3,
+        description="Currency must be a valid 3-letter ISO code.",
+    )
+    amount: Decimal = Field(
+        gt=Decimal("0.00"),
+        description="Transaction amount must be greater than zero.",
+    )
     device_id: str
     device_type: DeviceType
-    currency: str = Field(min_length=3, max_length=3, description="Currency must be a valid 3-letter ISO code.")
-    amount: Decimal = Field(gt=Decimal("0.00"), description="Transaction amount must be greater than zero.")
+    ip_address: str
     latitude: float
     longitude: float
-    status: TransactionStatus
-    day: str
-    month: str
-    year: str
-    event_timestamp: datetime
-
+    year: int
+    month: int = Field(ge=1, le=12)
+    day: int = Field(ge=1, le=31)
 
 if __name__ == "__main__":
-
-    dates = pendulum.parse("2024-01-02 12:00:00")
-
-    txn_daily = TransactionDaily(
-        event_id="evt_123",
-        transaction_id="txn_456",
-        user_id="user_789",
-        segment=SegmentType.RETAIL.value,
-        transaction_type=TransactionType.PAYMENT.value,
-        direction=TransactionDirection.OUT.value,
+    transaction_daily = TransactionDaily(
+        transaction_id="txn_001",
+        user_id="user_001",
+        event_date=date(2026, 10, 28),
+        event_timestamp=datetime(2026, 10, 28, 6, 36, 59),
+        segment=SegmentType.RETAIL,
+        transaction_type=TransactionType.PURCHASE,
+        direction=TransactionDirection.OUTGOING,
+        status=TransactionStatus.COMPLETED,
         sender_account="acc_001",
         receiver_account="acc_002",
-        merchant_id="merch_003",
-        ip_address="192.168.1.1",
-        device_id="dev_004",
-        device_type=DeviceType.ANDROID.value,
+        merchant_id="mrc_001",
         currency="USD",
-        amount=100.0,
+        amount=Decimal("100.00"),
+        device_id="dev_001",
+        device_type=DeviceType.MOBILE,
+        ip_address="",
         latitude=40.7128,
         longitude=-74.0060,
-        status=TransactionStatus.SUCCESS.value,
-        day="01",
-        month="01",
-        year="2023",
-        event_timestamp=dates
+        year=2026,
+        month=10,
+        day=28,
     )
-
-    txn_daily_dict = txn_daily.dict()
-
-    print(txn_daily_dict)

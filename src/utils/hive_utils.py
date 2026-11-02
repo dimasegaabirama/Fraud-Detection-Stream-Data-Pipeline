@@ -121,3 +121,4 @@ class HiveUtils:
             yield t_env
         finally:
             config.set_sql_dialect(original)
+

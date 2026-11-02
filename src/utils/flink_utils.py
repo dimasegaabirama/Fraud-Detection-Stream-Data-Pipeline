@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from pyflink.common import Types
 from pyflink.table import DataTypes, Schema
 
+from src.utils.json_schema_utils import JsonSchemaUtils
+
 
 class FlinkUtils:
     JSON_TO_FLINK = {
@@ -15,27 +17,6 @@ class FlinkUtils:
         ("string", "date"): (DataTypes.DATE(), Types.SQL_DATE()),
         ("string", "decimal"): (DataTypes.DECIMAL(18, 2), Types.BIG_DEC()),
     }
-
-    @staticmethod
-    def _resolve_prop(
-        prop: dict[str, Any],
-        defs: dict[str, Any],
-    ) -> tuple[str, str | None, bool]:
-        nullable = False
-
-        if "$ref" in prop:
-            ref = defs[prop["$ref"].split("/")[-1]]
-            return ref.get("type", "string"), None, nullable
-
-        if "anyOf" in prop:
-            options = [o for o in prop["anyOf"] if o.get("type") != "null"]
-            nullable = len(options) != len(prop["anyOf"])
-            if len(options) != 1:
-                raise ValueError(f"Complex types not supported: {prop}")
-            t, f, _ = FlinkUtils._resolve_prop(options[0], defs)
-            return t, f, nullable
-
-        return prop["type"], prop.get("format"), nullable
 
     @classmethod
     def build_flink_schema(
@@ -49,7 +30,7 @@ class FlinkUtils:
 
         fields = []
         for name, prop in schema["properties"].items():
-            t, f, nullable = cls._resolve_prop(prop, defs)
+            t, f, nullable = JsonSchemaUtils.resolve_property(prop, defs)
             try:
                 data_type, type_info = cls.JSON_TO_FLINK[(t, f)]
             except KeyError as exc:
@@ -83,6 +64,4 @@ class FlinkUtils:
 
 
 if __name__ == "__main__":
-    from src.models.transaction_fraud import TransactionFraudAlert
-
-    print(FlinkUtils.build_flink_schema(TransactionFraudAlert, "table"))
+    pass

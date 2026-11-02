@@ -90,57 +90,68 @@ Transaction type is intentionally **not** a rule dimension, to keep the number o
 ## Project Structure
 
 ```
-TODO: replace with the real structure, for example:
 .
-├── docker-compose.yml
-├── init/                  # SQL scripts for PostgreSQL (docker-entrypoint-initdb.d)
+├── config/                # Hadoop/Hive XML configuration
+├── docker/                # Service-specific Compose files, images, SQL init
+├── skills/                # Repository-local workflow guidance
 ├── src/
-│   ├── config/            # fraud_rules.py (window size, minimum counts, ...)
-│   ├── domain/            # enums: SegmentLevel, DirectionLevel
-│   ├── models/            # rule and threshold models
-│   └── rules/             # amount_rules.py, device_rules.py, base_rules.py, ...
-└── README.md
+│   ├── application/       # Application composition and startup
+│   │   ├── bootstrap/     # Source/sink initialization and registries
+│   │   └── transform/     # Stream transformations and helpers
+│   ├── config/            # Pydantic settings and config.yaml
+│   ├── integrations/      # External service clients
+│   │   └── exchange_rate/ # Exchange-rate API integration (scaffold)
+│   ├── models/            # Source, normalized, sink, and domain models
+│   ├── rules/             # Fraud scoring rules
+│   ├── udf/               # Flink user-defined functions
+│   └── utils/             # Flink, Kafka, Hive, and schema utilities
+├── tests/                 # Pytest tests
+│   └── integrations/
+│       └── exchange_rate/ # Exchange-rate client tests
+├── main.py                # Current application entry point
+├── Project_Folders_Structure_Blueprint.md
+├── pyproject.toml         # Dependencies and tool configuration
+├── start-all.sh           # Start services in dependency order
+└── stop-all.sh            # Stop services without deleting volumes
 ```
+
+See [Project_Folders_Structure_Blueprint.md](Project_Folders_Structure_Blueprint.md)
+for the complete tree, file-placement rules, dependency flow, and extension guidance.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.x (TODO: exact version)
+- Python 3.10 (the supported range is declared in `pyproject.toml`)
+- [uv](https://docs.astral.sh/uv/)
 - Docker and Docker Compose
-- TODO: Flink / Spark / Kafka requirements
 
 ### Setup
 
 ```bash
 git clone https://github.com/dimasegaabirama/Fraud-Detection-Stream-Data-Pipeline.git
 cd Fraud-Detection-Stream-Data-Pipeline
-
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt     # TODO: confirm file exists
+uv sync --group dev
 ```
 
-### Start the database
+### Start the services
 
 ```bash
-docker compose up -d
+bash start-all.sh
 ```
 
-SQL files in `init/` are executed automatically on first start (when the volume is empty). To re-run them:
+The service definitions are split under `docker/`; the startup script handles
+their dependency order. Use Git Bash or WSL on Windows to run the `.sh` scripts.
+
+### Entry point status
 
 ```bash
-docker compose down -v
-docker compose up -d
+uv run python main.py
 ```
 
-### Run the pipeline
-
-```bash
-python main.py        # TODO: replace with the real entry point
-```
-
-> Run the entry point as a script rather than `python -m src.rules.amount_rules`. Running a module that is also imported by its package `__init__.py` triggers a `RuntimeWarning` because the module is loaded twice.
+`main.py` is currently a placeholder; the bootstrap, source/sink, and
+transformation modules are being assembled independently and are not yet wired
+into a complete streaming job.
 
 ### Start all Docker services
 
@@ -162,12 +173,12 @@ bash stop-all.sh
 
 ## Configuration
 
-| Setting | Location | Default |
-|---|---|---|
-| Window size | `src/config/fraud_rules.py` (`WINDOW_MINUTES`) | 5 |
-| Minimum active days | `src/config/fraud_rules.py` (`MIN_ACTIVE_DAYS`) | TODO |
-| Minimum transaction count | `src/config/fraud_rules.py` (`MIN_TXN_COUNT`) | TODO |
-| Segment thresholds | `src/rules/*_rules.py` | see rule classes |
+Application configuration is loaded by `src/config/settings.py` from
+`src/config/config.yaml`, with environment variables and `.env` values taking
+precedence. Pydantic models for each section live beside it (`kafka.py`,
+`hadoop.py`, `hive.py`, `pipeline.py`, and `rules.py`). Fraud thresholds and
+score policy are configured in the YAML file; keep environment-specific
+secrets in `.env`, not in the checked-in YAML.
 
 ### Aggregate score policy
 

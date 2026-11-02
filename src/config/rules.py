@@ -9,7 +9,7 @@ class FraudRule(BaseModel):
     aggregation: Aggregation
     group_key: list[str]
     agg_fields: list[str]
-    window_minutes: int | None = None
+    timeout_ms: int | None = 30000
     threshold: FraudThreshold
     factors: dict[str, dict[str, float]] = Field(default_factory=dict)
 

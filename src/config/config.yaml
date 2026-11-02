@@ -52,7 +52,7 @@ rules:
     aggregation: "avg"
     group_key: ["user_id", "segment", "direction", "transaction_type"]
     agg_fields: ["amount"]
-    window_minutes: 60
+    timeout_ms: 60000
     threshold:
       low: {value: 1000.0, score: 10}
       medium: {value: 5000.0, score: 50}
@@ -78,7 +78,7 @@ rules:
     aggregation: "count"
     group_key: ["user_id", "device_id", "direction", "transaction_type"]
     agg_fields: ["device_id"]
-    window_minutes: 60
+    timeout_ms: 3600000
     threshold:
       low: {value: 1.0, score: 10}
       medium: {value: 3.0, score: 50}
@@ -100,7 +100,7 @@ rules:
     aggregation: "count"
     group_key: ["user_id", "ip_address", "segment", "transaction_type"]
     agg_fields: ["ip_address"]
-    window_minutes: 60
+    timeout_ms: 60000
     threshold:
       low: {value: 2.0, score: 10}
       medium: {value: 4.0, score: 50}
@@ -123,7 +123,7 @@ rules:
     aggregation: "custom"
     group_key: ["user_id", "segment"]
     agg_fields: ["latitude", "longitude", "timestamp"]
-    # window_minutes: None
+    timeout_ms: 60000
     threshold:
       low: {value: 2.0, score: 10}
       medium: {value: 4.0, score: 50}
@@ -139,7 +139,7 @@ rules:
     aggregation: "count"
     group_key: ["user_id", "segment", "direction", "transaction_type"]
     agg_fields: ["transaction_id"]
-    window_minutes: 60
+    timeout_ms: 60000
     threshold:
       low: {value: 5.0, score: 10}
       medium: {value: 10.0, score: 50}
