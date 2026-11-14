@@ -48,6 +48,9 @@ class FraudStatus(str, Enum):
     REVIEW = "review"
 
 
+RulesAction = FraudStatus
+
+
 class DeviceType(str, Enum):
     IOS = "ios"
     ANDROID = "android"
@@ -67,12 +70,12 @@ class FraudType(str, Enum):
     VELOCITY = "velocity"
 
 
-class ThresholdLevel(str, Enum):
+class ThresholdLevelType(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     NONE = "none"
-    
+
 
 class SchemaLevel(str, Enum):
     CATALOG = "catalog"

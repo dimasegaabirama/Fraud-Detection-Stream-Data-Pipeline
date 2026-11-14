@@ -1,147 +1,189 @@
-from collections.abc import Mapping
+from logging import Logger
 
-from pydantic import BaseModel
 from pyflink.datastream import StreamExecutionEnvironment
-from pyflink.datastream.connectors.kafka import (
-    KafkaSink,
-    KafkaSource,
-)
-from pyflink.table import StreamTableEnvironment, Table, TableDescriptor
+from pyflink.table import StreamTableEnvironment
 
-from src.application.bootstrap.registry import SINK_REGISTRY, SOURCE_REGISTRY
+from src.common.names import SINK_HIVE_NAME, SINK_KAFKA_NAME, SOURCE_NAME
 from src.config.settings import AppSettings
-from src.models.endpoint import HiveEndpoint, KafkaEndpoint
-from src.utils.flink_utils import FlinkUtils
+from src.models.endpoint import Endpoint, HiveEndpoint, KafkaEndpoint
 from src.utils.hive_utils import HiveUtils
-from src.utils.kafka_utils import KafkaUtils
 
 
 class BootstrapInitializer:
-
-    def __init__(self, settings: AppSettings, env: StreamExecutionEnvironment):
+    def __init__(self, logger: Logger, settings: AppSettings, env: StreamExecutionEnvironment):
+        self.logger = logger
         self.settings = settings
         self.env = env
         self.t_env = StreamTableEnvironment.create(env)
 
     @staticmethod
-    def validate_model_mapping(
-        models: Mapping[str, type[BaseModel]],
-        endpoint_name: str,
-        endpoint_type: str,
-    ) -> type[BaseModel]:
-        if endpoint_name not in models:
-            raise ValueError(
-                f"No model configured for {endpoint_type} '{endpoint_name}'"
-            )
-        return models[endpoint_name]
+    def _extract_endpoint(sources_or_sinks: list[Endpoint], name: str) -> Endpoint:
+        config = next((value for value in sources_or_sinks if value.name == name), None)
+        if config is None:
+            raise ValueError(f"Configuration not found: {name}")
+        return config
 
-    def build_kafka_source(
-        self,
-        source: KafkaEndpoint,
-        model: type[BaseModel],
-    ) -> KafkaSource:
-        return KafkaUtils.build_source(source, model)
-
-    def build_kafka_sink(
-        self,
-        sink: KafkaEndpoint,
-        model: type[BaseModel],
-    ) -> KafkaSink:
-        return KafkaUtils.build_sink(sink, model)
-
-    def build_hive_sink(
-        self,
-        sink: HiveEndpoint,
-        model: type[BaseModel],
-    ) -> Table:
-        if sink.catalog_name is None or sink.default_database is None:
-            raise ValueError(
-                "Hive sink requires catalog_name and default_database"
-            )
-
-        version = self.settings.hive.version
-        table_name = sink.table
-
-        catalog = HiveUtils.create_or_replace_catalog(
-            self.t_env,
-            sink.catalog_name,
-            hive_conf_dir=sink.hive_conf_dir,
-            hadoop_conf_dir=sink.hadoop_conf_dir,
-            hive_version=version,
+    @staticmethod
+    def _kafka_jaas_config(config: KafkaEndpoint) -> str:
+        return (
+            "org.apache.flink.kafka.shaded.org.apache.kafka.common.security.plain."
+            f'PlainLoginModule required username="{config.username}" '
+            f'password="{config.password}";'
         )
 
-        HiveUtils.create_or_replace_database(
-            self.t_env,
-            sink.catalog_name,
-            sink.default_database,
-            catalog=catalog,
-        )
-        table_schema = FlinkUtils.build_table_schema(model)
+    def source_transactions(self, source_name: str) -> None:
+        config = self._extract_endpoint(self.settings.pipeline.sources, source_name)
+        if not isinstance(config, KafkaEndpoint):
+            raise ValueError(f"Kafka source configuration expected: {source_name}")
 
-        with HiveUtils.use_hive_dialect(self.t_env) as hive_dialect:
-            hive_dialect.create_table(
-                table_name,
-                TableDescriptor.for_connector("hive")
-                .schema(table_schema.build())
-                .format("parquet")
-                .partitioned_by("year", "month", "day")
-                .option("sink.rolling-policy.file-size", "32MB")
-                .option("sink.rolling-policy.rollover-interval", "20 min")
-                .option("sink.rolling-policy.check-interval", "1 min")
-                .option("auto-compaction", "true")
-                .option("compaction.file-size", "128MB"),
-                ignoreIfExists=True,
+        try:
+            self.logger.info("Initialize Kafka source: %s", source_name)
+            self.t_env.execute_sql(
+                f"""
+                    CREATE TABLE {source_name} (
+                        event_id          STRING NOT NULL,
+                        transaction_id    STRING NOT NULL,
+                        user_id           STRING NOT NULL,
+                        amount            DECIMAL(18, 2) NOT NULL,
+                        currency          STRING NOT NULL,
+                        segment           STRING NOT NULL,
+                        transaction_type  STRING NOT NULL,
+                        direction         STRING NOT NULL,
+                        sender_account    STRING,
+                        receiver_account  STRING,
+                        merchant_id       STRING,
+                        ip_address        STRING NOT NULL,
+                        device_id         STRING NOT NULL,
+                        device_type       STRING NOT NULL,
+                        latitude          DOUBLE,
+                        longitude         DOUBLE,
+                        status            STRING NOT NULL,
+                        event_timestamp   TIMESTAMP(3) NOT NULL
+                    ) WITH (
+                        'connector' = 'kafka',
+                        'topic' = '{config.topic}',
+                        'properties.bootstrap.servers' = '{config.bootstrap_servers}',
+
+                        'properties.security.protocol' = 'SASL_PLAINTEXT',
+                        'properties.sasl.mechanism' = 'PLAIN',
+                        'properties.sasl.jaas.config' = '{self._kafka_jaas_config(config)}',
+
+                        'scan.startup.mode' = 'latest-offset',
+                        'format' = 'json',
+                        'json.fail-on-missing-field' = 'false',
+                        'json.ignore-parse-errors' = 'true'
+                    )
+                """
             )
+        except Exception as error:
+            raise ValueError(f"Failed to create Kafka source: {source_name}") from error
 
-        return self.t_env.from_path(f"{sink.catalog_name}.{sink.default_database}.{table_name}")
+    def sink_kafka(self, sink_name: str) -> None:
+        config = self._extract_endpoint(self.settings.pipeline.sinks, sink_name)
+        if not isinstance(config, KafkaEndpoint):
+            raise ValueError(f"Kafka sink configuration expected: {sink_name}")
 
-    def initialize_sources(
-        self
-    ) -> dict[str, KafkaSource]:
-        pipeline = self.settings.pipeline
-        sources: dict[str, KafkaSource] = {}
+        try:
+            self.logger.info("Initialize Kafka sink: %s", sink_name)
+            self.t_env.execute_sql(
+                f"""
+                    CREATE TABLE {sink_name} (
+                        alert_id STRING,
+                        transaction_id STRING,
+                        user_id STRING,
+                        fraud_type STRING,
+                        final_score INT,
+                        observed_value DECIMAL(20, 4),
+                        threshold_value DECIMAL(20, 4),
+                        event_time TIMESTAMP(3),
+                        detected_at TIMESTAMP(3)
+                    ) WITH (
+                        'connector' = 'kafka',
+                        'topic' = '{config.topic}',
+                        'properties.bootstrap.servers' = '{config.bootstrap_servers}',
 
-        for source in pipeline.sources:
-            if not isinstance(source, KafkaEndpoint):
-                raise ValueError(f"Unsupported source type: {type(source)}")
+                        'properties.security.protocol' = 'SASL_PLAINTEXT',
+                        'properties.sasl.mechanism' = 'PLAIN',
+                        'properties.sasl.jaas.config' = '{self._kafka_jaas_config(config)}',
 
-            model = self.validate_model_mapping(
-                models=SOURCE_REGISTRY,
-                endpoint_name=source.name,
-                endpoint_type="Kafka source"
+                        'format' = 'json',
+                        'json.fail-on-missing-field' = 'false',
+                        'json.ignore-parse-errors' = 'true'
+                    )
+                """
             )
-            sources[source.name] = self.build_kafka_source(source, model)
+        except Exception as error:
+            raise ValueError(f"Failed to create Kafka sink: {sink_name}") from error
 
-        return sources
+    def sink_hive(self, sink_name: str) -> None:
+        config = self._extract_endpoint(self.settings.pipeline.sinks, sink_name)
+        if not isinstance(config, HiveEndpoint):
+            raise ValueError(f"Hive sink configuration expected: {sink_name}")
 
-    def initialize_sinks(
-        self
-    ) -> dict[str, KafkaSink | None]:
-        pipeline = self.settings.pipeline
-        sinks: dict[str, KafkaSink | None] = {}
+        table_path = f"{config.catalog}.{config.database}.{config.table}"
 
-        for sink in pipeline.sinks:
-            if isinstance(sink, KafkaEndpoint):
-                model = self.validate_model_mapping(
-                    models=SINK_REGISTRY,
-                    endpoint_name=sink.name,
-                    endpoint_type="Kafka sink"
+        try:
+            self.logger.info("Create Hive table: %s", table_path)
+            with HiveUtils.use_hive_dialect(self.t_env) as hive_dialect:
+                catalog = hive_dialect.create_or_replace_catalog(
+                    t_env=self.t_env,
+                    catalog_name=config.catalog,
+                    hive_conf_dir=config.hive_conf_dir,
+                    hadoop_conf_dir=config.hadoop_conf_dir,
                 )
-                sinks[sink.name] = self.build_kafka_sink(sink, model)
-                continue
-
-            if isinstance(sink, HiveEndpoint):
-                model = self.validate_model_mapping(
-                    models=SINK_REGISTRY,
-                    endpoint_name=sink.name,
-                    endpoint_type="Hive sink",
+                hive_dialect.create_or_replace_database(
+                    t_env=self.t_env,
+                    database_name=config.database,
+                    catalog=catalog,
                 )
-                sinks[sink.name] = self.build_hive_sink(sink, model)
-                continue
 
-            raise ValueError(f"Unsupported sink type: {type(sink)}")
+                self.t_env.execute_sql(
+                    f"""
+                        CREATE TABLE IF NOT EXISTS {table_path} (
+                            alert_id            STRING,
+                            transaction_id      STRING,
 
-        return sinks
+                            user_id             STRING,
+                            fraud_type          STRING,
+                            tier                STRING,
+
+                            observed_value      DOUBLE,
+                            threshold_value     DOUBLE,
+                            base_score          DOUBLE,
+                            factor              DOUBLE,
+                            final_score         DOUBLE,
+                            evidence            MAP<STRING, STRING>,
+                            group_key           STRING,
+
+                            event_day           STRING,
+                            event_month         STRING,
+                            event_year          STRING,
+                            event_time          TIMESTAMP,
+                            detected_at         TIMESTAMP
+                        )
+                        PARTITIONED BY (day STRING, month STRING, year STRING)
+                        STORED AS PARQUET
+                        TBLPROPERTIES (
+                            'parquet.compression' = 'SNAPPY',
+                            'partition.time-extractor.timestamp-pattern' =
+                                '$year-$month-$day 00:00:00',
+                            'sink.partition-commit.trigger' = 'partition-time',
+                            'sink.partition-commit.delay' = '1 d',
+                            'sink.partition-commit.policy.kind' = 'metastore,success-file',
+                            'auto-compaction' = 'true',
+                            'compaction.small-files.avg-size' = '15MB',
+                            'compaction.file-size' = '128MB'
+                        );
+                    """
+                )
+        except Exception as error:
+            raise ValueError(f"Failed to create Hive sink table: {table_path}") from error
+
+    def initialize(self) -> None:
+        self.source_transactions(SOURCE_NAME)
+        self.sink_hive(SINK_HIVE_NAME)
+        self.sink_kafka(SINK_KAFKA_NAME)
+
 
 if __name__ == "__main__":
     pass

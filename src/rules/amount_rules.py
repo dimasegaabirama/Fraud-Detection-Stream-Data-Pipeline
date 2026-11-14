@@ -1,16 +1,25 @@
 from src.models.enums import FraudType
 from src.rules.base_rules import BaseRules
+from src.config.settings import AppSettings
 
-from pyflink.datastream.state import ListStateDescriptor, ListState
-from pyflink.datastream.functions import FlatMapFunction, RuntimeContext
+from pyflink.datastream.state import ListStateDescriptor, ListState, StateTtlConfig, Time,
+from pyflink.datastream.functions import FlatMapFunction, RuntimeContext, KeyedProcessFunction
 
 class _AmountRulesTransform(KeyedProcessFunction):
-    def open(self, runtime_context: RuntimeContext):
-        self.average_state = ListStateDescriptor(
-            name="user_id_average_state",
-            
-        )
 
+    def __init__(self, settings: AppSettings):
+        self.settings = settings
+
+    def open(self, runtime_context: RuntimeContext):
+        self.avg_state = ListStateDescriptor(
+            name="amount_avg_state"
+        )
+        self.ttl_config = StateTtlConfig.new_builder(ttl=Time.minutes(5))
+
+        self.average_state.enable_time_to_live()
+        self.state = runtime_context.get_list_state(self.average_state)
+
+    # def process_element(self, value, ctx: KeyedProcessFunction.Context):
 
 
 class AmountRules(BaseRules):

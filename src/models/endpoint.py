@@ -1,26 +1,31 @@
-from typing_extensions import Literal, Optional, Annotated, Union, List
-
-from pydantic import BaseModel, Field, SecretStr
+from typing import Annotated, Literal
+from pydantic import BaseModel, SecretStr, Field, model_validator
 
 
 class KafkaEndpoint(BaseModel):
-    name: str
     type: Literal["kafka"]
-    bootstrap_servers: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[SecretStr] = None
+    bootstrap_servers: str | None = None
+    username: str | None = None
+    password: SecretStr | None = None
     topic: str
-    group_id: Optional[str] = None
+    group_id: str | None = None
 
 
 class HiveEndpoint(BaseModel):
-    name: str
     type: Literal["hive"]
-    catalog_name: Optional[str] = None
-    default_database: Optional[str] = None
+    catalog: str | None = None
+    database: str | None = None
     table: str
-    partitioned_by: Optional[List[str]] = None
-    hive_conf_dir: Optional[str] = None
-    hadoop_conf_dir: Optional[str] = None
+    partitioned_by: list[str] | None = None
+    hive_conf_dir: str | None = None
+    hadoop_conf_dir: str | None = None
 
-Endpoint = Annotated[Union[KafkaEndpoint, HiveEndpoint], Field(discriminator="type")]
+    @model_validator(mode="before")
+    @classmethod
+    def validate_catalog_and_database(cls, value):
+        if value.get("catalog") is None or value.get("database") is None:
+            raise ValueError("Hive requires catalog or database")
+        return value
+
+
+Endpoint = Annotated[KafkaEndpoint | HiveEndpoint, Field(discriminator="type")]

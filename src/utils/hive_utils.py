@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 
-from pyflink.table import StreamTableEnvironment
+from pyflink.datastream import StreamExecutionEnvironment
+from pyflink.table import EnvironmentSettings, StreamTableEnvironment
 from pyflink.table.catalog import (
     Catalog,
     CatalogBaseTable,
@@ -85,16 +86,19 @@ class HiveUtils:
     def create_or_replace_database(
         cls,
         t_env: StreamTableEnvironment,
-        catalog_name: str,
         database_name: str,
         catalog: Catalog | None = None,
+        catalog_name: str | None = None,
         properties: dict[str, str] | None = None,
         comment: str | None = None,
         overwrite: bool = False,
         set_as_current: bool = True,
     ) -> CatalogDatabase:
-        if catalog is None:
-            catalog = t_env.get_catalog(catalog_name)
+
+        if catalog is None and catalog_name is None:
+            raise ValueError("Catalog or catalog name must not be none")
+
+        catalog = catalog or t_env.get_catalog(catalog_name)
 
         existing = cls.get(t_env, database_name, SchemaLevel.DATABASE)
         if existing is not None:
@@ -109,16 +113,25 @@ class HiveUtils:
             cls.use(t_env, database_name, SchemaLevel.DATABASE)
         return database
 
-    @staticmethod
+    @classmethod
     @contextmanager
     def use_hive_dialect(
+        cls,
         t_env: StreamTableEnvironment,
     ):
         config = t_env.get_config()
         original = config.get_sql_dialect()
         config.set_sql_dialect(SqlDialect.HIVE)
         try:
-            yield t_env
+            yield cls
         finally:
             config.set_sql_dialect(original)
 
+
+if __name__ == "__main__":
+    stream = StreamExecutionEnvironment.get_execution_environment()
+    settings = EnvironmentSettings.in_streaming_mode()
+    t_env = StreamTableEnvironment.create(
+        stream_execution_environment=stream, environment_settings=settings
+    )
+    HiveUtils.use_hive_dialect(t_env)

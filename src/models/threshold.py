@@ -1,11 +1,4 @@
 from pydantic import BaseModel, model_validator
-from src.models.enums import FraudType, ThresholdLevel
-
-class ThresholdResult(BaseModel):
-    type: FraudType
-    value: float = 0.0
-    score: int = 0
-    level: ThresholdLevel 
 
 
 class ThresholdLevelScore(BaseModel):
@@ -13,7 +6,7 @@ class ThresholdLevelScore(BaseModel):
     score: int = 0
 
 
-class FraudThreshold(BaseModel):
+class ThresholdLevel(BaseModel):
     low: ThresholdLevelScore
     medium: ThresholdLevelScore
     high: ThresholdLevelScore

@@ -8,23 +8,27 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from src.config.hadoop import HadoopSettings
-from src.config.hive import HiveSettings
-from src.config.kafka import KafkaSettings
-from src.config.pipeline import PipelineSettings
-from src.config.rules import RulesSettings
-
-from src.models.endpoint import HiveEndpoint, KafkaEndpoint
-from src.models.score_policy import ScorePolicy
-
+from src.models.endpoint import Endpoint, HiveEndpoint, KafkaEndpoint
+from src.config.models import (
+    KafkaSettings,
+    HadoopSettings,
+    HiveSettings,
+    RedisSettings,
+    PipelineSettings,
+    ApiSettings,
+    RulesSettings
+)
 
 class AppSettings(BaseSettings):
     kafka: KafkaSettings
     hadoop: HadoopSettings
     hive: HiveSettings
+    redis: RedisSettings
     pipeline: PipelineSettings
+    sources: dict[str, Endpoint]
+    sinks: dict[str, Endpoint]
+    api: dict[str, ApiSettings]
     rules: RulesSettings
-    score_policy: ScorePolicy
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -53,25 +57,27 @@ class AppSettings(BaseSettings):
             file_secret_settings,
         )
 
-    @model_validator(mode="after")
-    def set_default_sources_and_sinks(self):
-        pipeline = self.pipeline
-        for endpoint in (*pipeline.sources, *pipeline.sinks):
-            if isinstance(endpoint, HiveEndpoint):
-                if endpoint.catalog_name is None:
-                    endpoint.catalog_name = pipeline.catalog
-                if endpoint.default_database is None:
-                    endpoint.default_database = pipeline.default_database
-            elif isinstance(endpoint, KafkaEndpoint):
-                if endpoint.bootstrap_servers is None:
-                    endpoint.bootstrap_servers = self.kafka.bootstrap_servers
-                if endpoint.username is None:
-                    endpoint.username = self.kafka.username
-                if endpoint.password is None:
-                    endpoint.password = self.kafka.password
-                    
-        return self
+
+    # @model_validator(mode="after")
+    # def set_default_sources_and_sinks(self):
+    #     pipeline = self.pipeline
+    #     for endpoint in (*pipeline.sources, *pipeline.sinks):
+    #         if isinstance(endpoint, HiveEndpoint):
+    #             if endpoint.catalog_name is None:
+    #                 endpoint.catalog_name = pipeline.catalog
+    #             if endpoint.default_database is None:
+    #                 endpoint.default_database = pipeline.default_database
+    #         elif isinstance(endpoint, KafkaEndpoint):
+    #             if endpoint.bootstrap_servers is None:
+    #                 endpoint.bootstrap_servers = self.kafka.bootstrap_servers
+    #             if endpoint.username is None:
+    #                 endpoint.username = self.kafka.username
+    #             if endpoint.password is None:
+    #                 endpoint.password = self.kafka.password
+
+    #     return self
+
 
 if __name__ == "__main__":
     settings = AppSettings()
-    print(settings.score_policy)
+    print(settings.api.get("exchange_rate").urls)

@@ -7,15 +7,8 @@ class Transaction(BaseModel):
     event_id: str
     transaction_id: str
     user_id: str
-    amount: Decimal = Field(
-        gt=Decimal("0.00"),
-        description="Amount must be a positive decimal value.",
-    )
-    currency: str = Field(
-        min_length=3,
-        max_length=3,
-        description="Currency must be a valid 3-letter ISO code.",
-    )
+    amount: Decimal = Field(gt=Decimal("0.00"))
+    currency: str
     segment: str
     transaction_type: str
     direction: str

@@ -1,0 +1,1 @@
+API_EXCHANGE_RATE_KEY = r"api:exchage:{currency}"

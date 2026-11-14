@@ -1,12 +1,16 @@
+# === ARCHITECHTURE CONFIG ===
+
 kafka:
   version: "4.2.2"
   bootstrap_servers: "broker_1:19092,broker_2:19092,broker_3:19092"
+
 
 hadoop:
   version: "3.3.4"
   hostname: "namenode"
   port: "8020"
   conf_dir: "/etc/hadoop/conf"
+
 
 hive:
   version: "3.1.3"
@@ -16,42 +20,70 @@ hive:
   conf_dir: "/opt/hive/conf"
   warehouse_dir: "/opt/hive/warehouse"
 
+
+redis:
+  host: localhost
+  port: "6379"
+  db: "0"
+  max_connections: 4
+  socket_timeout: 5
+  socket_connect_timeout: 3
+  socket_keepalive: true
+  decode_responses: true
+  health_check_interval: 30
+  protocol: 3
+
+
+# === PIPELINE CONFIG ===
+
 pipeline:
-  tz: "Asia/Jakarta"
   catalog: "fraud_detection_catalog"
-  default_database: "fraud_detection"
+  database: "fraud_detection"
   parallelism: 4
   state_backend: "rocksdb"
   checkpoint_interval: 60000
   checkpoint_dir: "/opt/flink/checkpoints"
   savepoint_dir: "/opt/flink/savepoints"
-  sources:
-    - name: "kafka_source"
-      type: "kafka"
-      bootstrap_servers: "broker_1:19092,broker_2:19092,broker_3:19092"
-      topic: "fraud_detection_topic"
-      group_id: "fraud_detection_group"
-  sinks:
-    - name: "hive_sink"
-      type: "hive"
-      catalog_name: "fraud_detection_catalog"
-      default_database: "transactions"
-      table: "daily_transactions"
-      partitioned_by: ["year", "month", "day"]
 
-score_policy:
-  # The five rules can contribute up to 80 points each (maximum total: 400).
-  # Scores are summed before applying this policy.
-  allow_below: 50
-  otp_below: 100
-  review_below: 150
+sources:
+  transactions:
+    type: "kafka"
+    topic: "transactions"
+    bootstrap_servers: "broker_1:19092,broker_2:19092,broker_3:19092"
 
+sinks:
+  fact_fraud_evaluations:
+    type: "hive"
+    catalog: "security_risk"
+    database: "fraud_analytics"
+    table: "fact_fraud_evaluations"
+    partitioned_by: ["year", "month", "day"]
+  
+  fraud_detection_results:
+    type: "kafka"
+    bootstrap_servers: "broker_1:19092,broker_2:19092,broker_3:19092"
+    topic: "fraud_detection_results"
+
+# === API CONFIG ===
+api:
+  exchange_rate:
+    version: v1
+    ttl_ms: 1200000
+    base_currency: usd
+    path: "/{version}/currencies/{currency}.min.json"
+    urls:
+      - "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest"
+      - "https://latest.currency-api.pages.dev"
+
+
+# === RULES CONFIG ===
 rules:
+  score_policy:
+    allow_below: 50
+    otp_below: 100
+    review_below: 150
+
   amount:
-    enabled: true
-    aggregation: "avg"
-    group_key: ["user_id", "segment", "direction", "transaction_type"]
-    agg_fields: ["amount"]
     timeout_ms: 60000
     threshold:
       low: {value: 1000.0, score: 10}
@@ -74,10 +106,6 @@ rules:
         withdrawal: 1.0
 
   device:
-    enabled: true
-    aggregation: "count"
-    group_key: ["user_id", "device_id", "direction", "transaction_type"]
-    agg_fields: ["device_id"]
     timeout_ms: 3600000
     threshold:
       low: {value: 1.0, score: 10}
@@ -96,10 +124,6 @@ rules:
         withdrawal: 1.0
 
   ip_address:
-    enabled: true
-    aggregation: "count"
-    group_key: ["user_id", "ip_address", "segment", "transaction_type"]
-    agg_fields: ["ip_address"]
     timeout_ms: 60000
     threshold:
       low: {value: 2.0, score: 10}
@@ -119,10 +143,6 @@ rules:
         withdrawal: 0.8
 
   speed:
-    enabled: true
-    aggregation: "custom"
-    group_key: ["user_id", "segment"]
-    agg_fields: ["latitude", "longitude", "timestamp"]
     timeout_ms: 60000
     threshold:
       low: {value: 2.0, score: 10}
@@ -135,10 +155,6 @@ rules:
         individual: 1.0
 
   velocity:
-    enabled: true
-    aggregation: "count"
-    group_key: ["user_id", "segment", "direction", "transaction_type"]
-    agg_fields: ["transaction_id"]
     timeout_ms: 60000
     threshold:
       low: {value: 5.0, score: 10}

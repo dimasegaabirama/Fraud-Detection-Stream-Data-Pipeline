@@ -5,7 +5,6 @@ from src.models.threshold import FraudThreshold
 
 
 class FraudRule(BaseModel):
-    enabled: bool = True
     aggregation: Aggregation
     group_key: list[str]
     agg_fields: list[str]

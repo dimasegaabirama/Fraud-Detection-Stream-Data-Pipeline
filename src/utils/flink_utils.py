@@ -3,7 +3,6 @@ from typing import Any, Literal
 from pydantic import BaseModel
 from pyflink.common import Types
 from pyflink.table import DataTypes, Schema
-
 from src.utils.json_schema_utils import JsonSchemaUtils
 
 
@@ -34,9 +33,7 @@ class FlinkUtils:
             try:
                 data_type, type_info = cls.JSON_TO_FLINK[(t, f)]
             except KeyError as exc:
-                raise ValueError(
-                    f"Type not mapped: field={name}, type={t}, format={f}"
-                ) from exc
+                raise ValueError(f"Type not mapped: field={name}, type={t}, format={f}") from exc
             nullable = nullable or name not in required
             fields.append((name, data_type if nullable else data_type.not_null(), type_info))
 
