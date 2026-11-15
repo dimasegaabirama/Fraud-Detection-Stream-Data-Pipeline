@@ -22,7 +22,7 @@ class HiveEndpoint(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def validate_catalog_and_database(cls, value):
+    def _validate_catalog_and_database(cls, value):
         if value.get("catalog") is None or value.get("database") is None:
             raise ValueError("Hive requires catalog or database")
         return value

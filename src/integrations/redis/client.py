@@ -9,20 +9,22 @@ from redis.connection import ConnectionPool
 from src.config.settings import AppSettings
 
 
-class RedisConn:
+class RedisClient:
     _pool = None
 
     def __init__(self, logger: Logger, settings: AppSettings):
         self.logger = logger or logging.getLogger(__name__)
-        if not RedisConn._pool:
-            RedisConn._pool = ConnectionPool(**settings.redis.model_dump())
+        self.settings = settings
+
+        if not RedisClient._pool:
+            RedisClient._pool = ConnectionPool(**settings.redis.model_dump())
 
         self.conn = redis.Redis(connection_pool=self._pool)
 
-    def get_cache(self, key) -> Any | None:
+    def get_data(self, key) -> Any | None:
         return self.conn.get(key)
 
-    def set_cache(
+    def set_data(
         self,
         key: Any,
         value: Any,

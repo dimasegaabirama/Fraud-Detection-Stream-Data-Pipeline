@@ -7,11 +7,15 @@ from pyflink.datastream.state import MapStateDescriptor, ValueStateDescriptor
 
 from src.config.settings import AppSettings
 from src.models.enums import FraudType
-from src.models.sink.fact_fraud_evaluations import FactFraudEvaluations
-from src.models.sink.fraud_alerts import FraudAlerts
-from src.models.threshold import ThresholdLevel
+# from src.models.sink.fact_fraud_evaluations import FactFraudEvaluations
+# from src.models.sink.fraud_alerts import FraudAlerts
+
+from src.contracts.cleaned_events import CleanedTransaction
 from src.rules.base_rules import BaseRules
-from src.rules.registry import FRAUD_RESULTS
+
+from src.models.threshold import ThresholdLevel
+from src.models.score import ScoreResult
+from src.common.format import TIMESTAMP_FORMAT
 
 
 def haversine_km(lon1, lat1, lon2, lat2):
@@ -24,9 +28,12 @@ def haversine_km(lon1, lat1, lon2, lat2):
 
 
 class SpeedRules(KeyedProcessFunction):
+
+    type = FraudType.SPEED
+
     def __init__(self, settings: AppSettings):
         self.pipeline = settings.pipeline
-        self.rules = BaseRules(settings=settings, fraud_type=FraudType.SPEED)
+        self.rules = BaseRules(settings=settings, fraud_type=self.type)
 
     def open(self, runtime_context: RuntimeContext):
         self.last_point = runtime_context.get_map_state(
@@ -40,11 +47,13 @@ class SpeedRules(KeyedProcessFunction):
         if value.get("transaction_id") == self.last_trx.value():
             return
 
-        seg = value["segment"]
-        lon = float(value["longitude"])
-        lat = float(value["latitude"])
-        event_dt = pendulum.parse(value["event_timestamp"])
-        ts = event_dt.timestamp()
+        cleaned_txn = CleanedTransaction(**value)
+        
+        seg = cleaned_txn.segment
+        lon = cleaned_txn.longitude
+        lat = cleaned_txn.latitude
+
+        ts = pendulum.parse(value["event_timestamp"]).timestamp()
 
         result = None
         speed_kmh = 0.0
@@ -60,7 +69,7 @@ class SpeedRules(KeyedProcessFunction):
             elapsed_s = ts - prev_ts
             if elapsed_s > 0:
                 distance_km = haversine_km(prev_lon, prev_lat, lon, lat)
-                speed_kmh = distance_km / (elapsed_s / 3600.0)  # timestamp dalam detik
+                speed_kmh = distance_km / (elapsed_s / 3600.0)
                 result = self.rules.get_result(value=speed_kmh, segment=seg)
             else:
                 stale = True
@@ -75,12 +84,11 @@ class SpeedRules(KeyedProcessFunction):
             return
 
         now_ms = ctx.timer_service().current_processing_time()
-        detected_at = pendulum.from_timestamp(now_ms / 1000).strftime()
+        detected_at = pendulum.from_timestamp(now_ms / 1000).strftime(TIMESTAMP_FORMAT)
 
-        transaction_id = value["transaction_id"]
-        user_id = value["user_id"]
-        alert_id = f"SPEED-{transaction_id}-{user_id}"
-        group_key = str(ctx.get_current_key())
+        score_result = ScoreResult(
+
+        )
 
         observed_value = round(speed_kmh, 4)
         threshold_value = round(result.threshold_value, 4)
@@ -90,17 +98,7 @@ class SpeedRules(KeyedProcessFunction):
 
         yield (
             FRAUD_RESULTS,
-            FraudAlerts(
-                alert_id=alert_id,
-                transaction_id=transaction_id,
-                user_id=value["user_id"],
-                fraud_type=FraudType.SPEED,
-                final_score=final_score,
-                observed_value=observed_value,
-                threshold_value=threshold_value,
-                event_time=event_dt,
-                detected_at=detected_at,
-            ),
+            cleaned_txn.to_fraud_alerts()
         )
 
         yield FactFraudEvaluations(

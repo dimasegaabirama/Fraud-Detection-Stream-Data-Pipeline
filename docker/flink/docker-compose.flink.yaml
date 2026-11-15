@@ -1,31 +1,31 @@
 services:
-  flink-client:
-    build: 
-      context: .
-      dockerfile: dockerfile.base.flink
-    container_name: flink-client
-    hostname: flink-client
-    env_file:
-      - ${PROJECT_DIR}/.env
-    environment:
-      FLINK_HDFS_BASE: hdfs://namenode:8020/flink
-      UPLOAD_JARS: true
-      FLINK_PROPERTIES: >
-          taskmanager.numberOfTaskSlots: 2
-          parallelism.default: 4
-          state.backend: rocksdb
-          execution.checkpointing.interval: 60s
-          yarn.provided.lib.dirs: hdfs://${FLINK_HDFS_BASE}/lib;hdfs://${FLINK_HDFS_BASE}/plugins
-    volumes:
-      - ${PROJECT_DIR}/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
-      - ${PROJECT_DIR}/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
-      - ${PROJECT_DIR}/config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml
-      - ${PROJECT_DIR}/config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml
-      - ${PROJECT_DIR}/config/hive-site.xml:/opt/hive/conf/hive-site.xml
-    ports:
-      - "8081:8081"
-    networks:
-      - hadoop_net
+  # flink-client:
+  #   build: 
+  #     context: .
+  #     dockerfile: dockerfile.base.flink
+  #   container_name: flink-client
+  #   hostname: flink-client
+  #   env_file:
+  #     - ${PROJECT_DIR}/.env
+  #   environment:
+  #     FLINK_HDFS_BASE: hdfs://namenode:8020/flink
+  #     UPLOAD_JARS: true
+  #     FLINK_PROPERTIES: >
+  #         taskmanager.numberOfTaskSlots: 2
+  #         parallelism.default: 4
+  #         state.backend: rocksdb
+  #         execution.checkpointing.interval: 60s
+  #         yarn.provided.lib.dirs: hdfs://${FLINK_HDFS_BASE}/lib;hdfs://${FLINK_HDFS_BASE}/plugins
+  #   volumes:
+  #     - ${PROJECT_DIR}/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+  #     - ${PROJECT_DIR}/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+  #     - ${PROJECT_DIR}/config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml
+  #     - ${PROJECT_DIR}/config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml
+  #     - ${PROJECT_DIR}/config/hive-site.xml:/opt/hive/conf/hive-site.xml
+  #   ports:
+  #     - "8081:8081"
+  #   networks:
+  #     - hadoop_net
 
   redis-api-cache:
     image: redis:7.2-bookworm

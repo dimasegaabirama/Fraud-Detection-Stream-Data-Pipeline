@@ -3,21 +3,19 @@ from copy import deepcopy
 
 from src.config.rules import FraudRule
 from src.config.settings import AppSettings
-from src.models.enums import FraudType, ThresholdLevel
-from src.models.score_policy import ScorePolicy
+from src.models.enums import FraudType, ThresholdLevelType
 from src.models.threshold import FraudThreshold, ThresholdResult
 
 
 class BaseRules(ABC):
     def __init__(self, settings: AppSettings, fraud_type: FraudType):
-        self.score_policy: ScorePolicy = settings.score_policy
-        self.rule: FraudRule = getattr(settings.rules, fraud_type.value)
-        self.fraud_type = fraud_type
+        self.settings = settings.rules
+        self.rule_config = getattr(self.settings, fraud_type.value)
 
     def _calculate_multiplier(self, key_values: dict[str, str]) -> float:
         multiplier = 1.0
         for category, selected_value in key_values.items():
-            mapping = self.rule.factors.get(category)
+            mapping = self.rule_config
             if mapping is None:
                 raise ValueError(f"Unknown factor category: {category}")
 
@@ -40,14 +38,14 @@ class BaseRules(ABC):
     @staticmethod
     def _calculate_score(
         value: float, threshold: FraudThreshold
-    ) -> tuple[int, int, ThresholdLevel]:
+    ) -> tuple[int, int, ThresholdLevelType]:
         if value >= threshold.high.value:
-            return threshold.high.score, threshold.high.value, ThresholdLevel.HIGH
+            return threshold.high.score, threshold.high.value, ThresholdLevelType.HIGH
         if value >= threshold.medium.value:
-            return threshold.medium.score, threshold.medium.value, ThresholdLevel.MEDIUM
+            return threshold.medium.score, threshold.medium.value, ThresholdLevelType.MEDIUM
         if value >= threshold.low.value:
-            return threshold.low.score, threshold.low.value, ThresholdLevel.LOW
-        return 0, 0, ThresholdLevel.NONE
+            return threshold.low.score, threshold.low.value, ThresholdLevelType.LOW
+        return 0, 0, ThresholdLevelType.NONE
 
     def get_score(self, value: float, **key_values: str) -> int:
         selected_factors = key_values or self.key_values
@@ -72,7 +70,7 @@ class BaseRules(ABC):
 if __name__ == "__main__":
     rules = BaseRules(
         settings=AppSettings(),
-        fraud_type=FraudType.AMOUNT,
+        fraud_type="amount",
         segment="retail",
         transaction_type="payment",
         direction="out",

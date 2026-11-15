@@ -1,19 +1,20 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator
-from src.models.score import ScoreResult
+from pydantic import BaseModel, Field, model_validator
+from src.models.score import ScoreResult, ScoreAggregate
 from src.models.enums import (
     SegmentType, 
     DeviceType,
     TransactionDirection,
     TransactionStatus,
-    TransactionType
+    TransactionType,
+    FraudType
 )
 
 from src.common.format import TIMESTAMP_FORMAT
 from src.contracts.score_events import (
-    BaseScoredEvents,
+    BaseFraud,
     FactFraudEvaluations,
     FraudAlerts
 )
@@ -37,58 +38,46 @@ class CleanedTransaction(BaseModel):
     longitude: float 
     status: TransactionStatus
     event_timestamp: str
-    processed_timestamp: str | None = None
+    processed_timestamp: str
 
-
-
-    @field_validator(field="event_timestamp", mode="before")
+    @model_validator(mode="before")
     @classmethod
     def validate_timestamp(cls, value):
+        timestamp_fields = ["event_timestamp", "processed_timestamp"]
         try:
-            datetime.strptime(value, TIMESTAMP_FORMAT)
+            for field in timestamp_fields:
+                datetime.strptime(value[field], TIMESTAMP_FORMAT)
         except Exception:
             raise ValueError(f"Format date on field 'event_timestamp' must be {TIMESTAMP_FORMAT}")
+        
         return value
 
+    def to_fact_fraud_evaluations(self, score_result: ScoreResult) -> FactFraudEvaluations:
+        event_timestamp = datetime.strptime(self.event_timestamp, TIMESTAMP_FORMAT)
 
-    def make_alert_id(self, score_result: ScoreResult) -> str:
-        import hashlib
-
-        raw = "\x1f".join((self.transaction_id, self.user_id, score_result.type))
-        return "alt_" + hashlib.blake2b(raw.encode("utf-8"), digest_size=16).hexdigest()
-
-
-    def to_scored_events(self, score_result: ScoreResult) -> BaseScoredEvents:
-        return BaseScoredEvents(
-            alert_id=self.make_alert_id(score_result),
+        return FactFraudEvaluations(
             transaction_id=self.transaction_id,
             user_id=self.user_id,
-            fraud_type=score_result.type,
+            fraud_type=score_result.fraud_type,
             level=score_result.level,
-            final_score=score_result.final_score,
-            action=score_result.action,
-            event_time=self.event_timestamp,
-            detected_at=self.processed_timestamp,
-        )
-
-    
-    def to_fact_fraud_evaluations(self, score_result: ScoreResult) -> FactFraudEvaluations:
-        base_scored_events = self.to_scored_events(score_result).model_dump()
-        event_timestamp = datetime.strptime(self.event_timestamp, TIMESTAMP_FORMAT)
-        
-        return FactFraudEvaluations(
-            **base_scored_events,
+            base_score=score_result.base_score,
             factor=score_result.factor,
+            contribution_score=score_result.contribution_score,
             observed_value=score_result.observed_value,
             threshold_value=score_result.threshold_value,
-            base_score=score_result.base_score,
             evidence=score_result.evidence,
+            event_time=self.event_timestamp,
+            detected_at=self.processed_timestamp,
             day=event_timestamp.day,
             month=event_timestamp.month,
             year=event_timestamp.year
-
         )
 
-    def to_fraud_alerts(self, score_result: ScoreResult) -> FraudAlerts:
-        base_scored_events = self.to_scored_events(score_result).model_dump()
-        return FraudAlerts(**base_scored_events)
+    def to_fraud_alerts(self, score_agg: ScoreAggregate) -> FraudAlerts:
+        return FraudAlerts(
+            user_id=self.user_id,
+            final_score=score_agg.final_score,
+            action=score_agg.action,
+            event_time=self.event_timestamp,
+            detected_at=self.processed_timestamp
+        )

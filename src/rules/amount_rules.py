@@ -2,7 +2,7 @@ from src.models.enums import FraudType
 from src.rules.base_rules import BaseRules
 from src.config.settings import AppSettings
 
-from pyflink.datastream.state import ListStateDescriptor, ListState, StateTtlConfig, Time,
+from pyflink.datastream.state import ListStateDescriptor, ListState, StateTtlConfig, Time
 from pyflink.datastream.functions import FlatMapFunction, RuntimeContext, KeyedProcessFunction
 
 class _AmountRulesTransform(KeyedProcessFunction):
