@@ -54,8 +54,8 @@ class ExchangeAPI:
             except HTTPError:
                 self.logger.warning("Exchange-rate request failed; trying the alternate URL")
                 continue
-            except Exception as error:
-                raise ValueError("Failed to fetch exchange-rate data") from error
+            except Exception as e:
+                raise ValueError("Failed to fetch exchange-rate data") from e
 
         raise ValueError(f"Failed to fetch exchange-rate data for {self.base_currency}")
 

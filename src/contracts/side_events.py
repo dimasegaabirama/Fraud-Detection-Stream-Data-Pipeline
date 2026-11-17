@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from src.contracts.cleaned_events import CleanedTransaction
+from src.contracts.raw_events import Transaction
 
 class BaseSideEvents(BaseModel):
     info: str
@@ -12,4 +12,4 @@ class DeadLetterEvents(BaseSideEvents):
 
 class DuplicateEvents(BaseSideEvents):
     info: str = "Duplicate"
-    value: CleanedTransaction
+    value: Transaction

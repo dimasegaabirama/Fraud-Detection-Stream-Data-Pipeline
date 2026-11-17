@@ -14,7 +14,6 @@ from src.models.enums import (
 
 from src.common.format import TIMESTAMP_FORMAT
 from src.contracts.score_events import (
-    BaseFraud,
     FactFraudEvaluations,
     FraudAlerts
 )

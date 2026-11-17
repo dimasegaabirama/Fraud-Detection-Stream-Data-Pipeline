@@ -1,211 +1,191 @@
 # Fraud Detection Streaming Pipeline
 
-A real-time fraud detection pipeline built with Apache Kafka and Apache Flink. The system consumes transaction events, converts them into typed streaming records, aggregates behavioral signals over configurable time windows, and evaluates them against rule-based fraud thresholds.
+A Python streaming application for detecting suspicious financial transactions.
+The project is being developed with Apache Kafka and PyFlink, with Hadoop/Hive
+for analytics storage, PostgreSQL for service initialization and the Hive
+metastore, and Redis for cache/state integrations.
 
-The pipeline is designed to demonstrate the core challenges of streaming fraud detection: event-time processing, configurable rules, multi-dimensional transaction behavior, and reliable sinks for both analytical storage and fraud alerts. Hive is used for table-based transaction storage, while Kafka carries the streaming input and alert output.
+> **Development status:** the components are being assembled, but the complete
+> streaming job is not yet wired into `main.py`. The diagram below describes the
+> intended flow across the current components; it is not an end-to-end runnable
+> job yet. This repository does not currently implement a Spark,
+> Bronze/Silver/Gold, PyDeequ, or branch-and-merge workflow.
 
-## Project Summary
+## Pipeline Flow
 
-This project processes financial transactions in motion instead of waiting for batch jobs. Each transaction can be evaluated using signals such as transaction amount, device usage, IP activity, transaction velocity, and geographic movement. Rules can be adjusted by segment, direction, transaction type, and severity level without changing the streaming architecture.
-
-## Features
-
-- Stream processing of transaction events with 5-minute event-time windows
-- Rule engine with three severity levels per rule: `low`, `medium`, `high`, each with its own threshold and score
-- Rules split by **segment** (`BUSINESS`, `RETAIL`, `INDIVIDUAL`) and **direction** (`DEBIT`, `CREDIT`)
-- Multiple rule types evaluated from the same window aggregation (amount, device, IP, velocity, receiver)
-- PostgreSQL as storage, initialized automatically through Docker Compose
-- Sample seed data (200 rows) including injected anomalies for testing
-
-## Architecture
-
-```
-Transactions -> Kafka
-        |
-        v
-Apache Flink
-        - typed Kafka source and sink
-        - event-time window processing
-        - configurable aggregation and rule evaluation
-        |
-        v
-Rule engine
-        - segment and direction-aware thresholds
-        - low, medium, and high severity levels
-        - fraud score generation
-        |
-                                +--> Hive transaction tables
-                                |
-                                +--> Kafka fraud alerts
+```mermaid
+flowchart LR
+    A["Kafka: transactions"] --> B["PyFlink: validate raw event"]
+    B -->|invalid| C["Dead-letter side output"]
+    B -->|valid| D["Normalize and deduplicate"]
+    D -->|duplicate| E["Duplicate side output"]
+    D --> F["Evaluate configurable fraud rules"]
+    F --> G["Aggregate score and action"]
+    G --> H["Hive: fact_fraud_evaluations"]
+    G --> I["Kafka: fraud_detection_results"]
 ```
 
-## Data Schema
+The transaction contract and normalization/deduplication components are in
+place. Rule configuration and supporting scoring components are also present,
+but the complete orchestration, side-output routing, and sink connections still
+need to be integrated and tested as a streaming job.
 
-| Column | Type (PostgreSQL) | Description |
+## Current Capabilities
+
+- PyFlink-oriented transaction processing components and Kafka endpoint
+  configuration.
+- Pydantic contracts for raw transactions, normalized transactions, fraud
+  evaluation records, fraud alerts, duplicate events, and invalid events.
+- Transaction normalization for decimal amounts, coordinates, timestamps, and
+  categorical values.
+- A keyed deduplication component with a five-minute event-time TTL.
+- Configurable fraud thresholds for amount, device, IP address, speed, and
+  velocity rules, with low/medium/high levels and score factors.
+- Hive and Kafka sink definitions, plus Hadoop, Hive, Kafka, PostgreSQL, and
+  Flink Docker Compose stacks.
+- Redis integrations for exchange-rate caching and transaction sliding-window
+  data.
+
+## Transaction Contract
+
+The raw Kafka transaction is validated against `src/contracts/raw_events.py`.
+Optional account and merchant fields may be null.
+
+| Field | Expected value | Description |
 |---|---|---|
-| event_id | VARCHAR(50) | Unique event identifier |
-| transaction_id | VARCHAR(50) | Transaction identifier |
-| user_id | VARCHAR(50) | User identifier |
-| timestamp | TIMESTAMPTZ | Event time |
-| amount | NUMERIC(18,2) | Transaction amount |
-| currency | CHAR(3) | ISO currency code (IDR, USD, SGD) |
-| status | VARCHAR(20) | `SUCCESS`, `FAILED`, `PENDING`, `REVERSED` |
-| transaction_type | VARCHAR(20) | `TRANSFER`, `PAYMENT`, `TOP_UP`, `WITHDRAWAL`, `REFUND` |
-| direction | VARCHAR(10) | `DEBIT` (money out) or `CREDIT` (money in) |
-| sender_account | VARCHAR(20) | Sender account, nullable |
-| receiver_account | VARCHAR(20) | Receiver account, nullable |
-| merchant_id | VARCHAR(20) | Merchant, nullable |
-| ip_address | INET | Client IP |
-| device_id | VARCHAR(50) | Device identifier |
-| device_type | VARCHAR(20) | `ANDROID`, `IOS`, `WEB` |
-| latitude | DOUBLE PRECISION | Location latitude |
-| longitude | DOUBLE PRECISION | Location longitude |
+| `event_id` | string | Event identifier |
+| `transaction_id` | string | Transaction identifier used for deduplication |
+| `user_id` | string | User identifier |
+| `amount` | positive decimal | Transaction amount |
+| `currency` | string | Currency code; normalized to uppercase |
+| `segment` | string | User segment; normalized to lowercase |
+| `transaction_type` | string | Transaction type; normalized to lowercase |
+| `direction` | string | Transaction direction; normalized to lowercase |
+| `sender_account` | string or null | Sender account |
+| `receiver_account` | string or null | Receiver account |
+| `merchant_id` | string or null | Merchant identifier |
+| `ip_address` | string | Client IP address |
+| `device_id` | string | Device identifier |
+| `device_type` | string | Device type; normalized to lowercase |
+| `latitude`, `longitude` | numeric | Transaction coordinates |
+| `status` | string | Transaction status; normalized to lowercase |
+| `event_timestamp` | string | Event-time timestamp |
 
-## Fraud Rules
+The cleaned transaction contract and the fraud output contracts are defined in
+`src/contracts/cleaned_events.py` and `src/contracts/score_events.py`.
 
-Every rule is defined per **segment x direction**, with three severity levels:
+## Fraud Scoring and Configuration
 
-```python
-self._rule(
-    SegmentLevel.RETAIL,
-    DirectionLevel.DEBIT,
-    low=(4, 15.0),  # (threshold, score)
-    medium=(5, 60.0),
-    high=(8, 90.0),
-)
-```
+Application defaults and rule thresholds live in `src/config/config.yaml`;
+Pydantic settings models are in `src/models/settings/`. The rule configuration
+includes thresholds and optional factors for segment, direction, and
+transaction type. Rule windows are configured individually (for example,
+amount uses a 24-hour window, device uses one hour, and velocity uses one
+minute); there is no single five-minute window shared by every rule.
 
-The window (5 minutes) is defined once and shared by all rules. Each rule only differs in the metric it reads from the window:
+The aggregate score policy currently sets the `otp`, `review`, and `block`
+cutoffs to `50`, `100`, and `150`. Keep environment-specific credentials and
+overrides in `.env`, which is ignored by Git; do not commit secrets.
 
-| Rule | Metric per 5-minute window |
-|---|---|
-| Amount | `SUM(amount)` |
-| Device | `COUNT(DISTINCT device_id)` |
-| IP | `COUNT(DISTINCT ip_address)` |
-| Velocity | `COUNT(*)` |
-| Receiver | `COUNT(DISTINCT receiver_account)` |
-
-Transaction type is intentionally **not** a rule dimension, to keep the number of rules at `rule types x 3 segments x 2 directions`. If needed later, it can be added as a threshold multiplier per type instead of separate rules.
+The exchange-rate client is implemented in
+`src/integrations/api/exchange_rate.py` and uses Redis as a cache. Redis sliding
+window helpers are in `src/integrations/redis/`.
 
 ## Project Structure
 
-```
+```text
 .
-├── config/                # Hadoop/Hive XML configuration
-├── docker/                # Service-specific Compose files, images, SQL init
-├── skills/                # Repository-local workflow guidance
+├── config/                         # Hadoop and Hive XML configuration
+├── docker/
+│   ├── flink/                      # Flink Compose, image, and entrypoint
+│   ├── hadoop/                     # Hadoop Compose definition
+│   ├── hive/                       # Hive Compose definition and image
+│   ├── kafka/                      # Kafka Compose definition
+│   └── postgres/
+│       ├── init/                   # PostgreSQL schema and seed SQL
+│       └── docker-compose.postgres.yaml
 ├── src/
-│   ├── application/       # Application composition and startup
-│   │   ├── bootstrap/     # Source/sink initialization and registries
-│   │   └── transform/     # Stream transformations and helpers
-│   ├── config/            # Pydantic settings and config.yaml
-│   ├── integrations/      # External service clients
-│   │   └── exchange_rate/ # Exchange-rate API integration (scaffold)
-│   ├── models/            # Source, normalized, sink, and domain models
-│   ├── rules/             # Fraud scoring rules
-│   ├── udf/               # Flink user-defined functions
-│   └── utils/             # Flink, Kafka, Hive, and schema utilities
-├── tests/                 # Pytest tests
-│   └── integrations/
-│       └── exchange_rate/ # Exchange-rate client tests
-├── main.py                # Current application entry point
+│   ├── application/
+│   │   ├── bootstrap/              # Schema/bootstrap setup
+│   │   └── transform/              # Transaction transformations and helpers
+│   ├── common/                     # Shared names, keys, tags, and formats
+│   ├── config/                     # Settings loader and application YAML
+│   ├── contracts/                  # Raw, cleaned, scored, and side-event models
+│   ├── integrations/
+│   │   ├── api/                    # Exchange-rate API client
+│   │   └── redis/                  # Redis client and sliding-window helpers
+│   ├── models/                     # Domain, endpoint, score, and settings models
+│   ├── rules/                      # Fraud rule evaluation components
+│   ├── udf/                        # Flink user-defined functions
+│   └── utils/                      # Flink and Hive helpers
+├── tests/                          # Unit and integration tests
+├── main.py                         # Placeholder entry point; no job orchestration yet
 ├── Project_Folders_Structure_Blueprint.md
-├── pyproject.toml         # Dependencies and tool configuration
-├── start-all.sh           # Start services in dependency order
-└── stop-all.sh            # Stop services without deleting volumes
+├── pyproject.toml                  # Dependencies and tool configuration
+├── start-all.sh                    # Start Docker Compose stacks
+├── stop-all.sh                     # Stop stacks and remove Compose volumes
+└── uv.lock                         # Resolved Python dependencies
 ```
 
 See [Project_Folders_Structure_Blueprint.md](Project_Folders_Structure_Blueprint.md)
-for the complete tree, file-placement rules, dependency flow, and extension guidance.
+for directory responsibilities and extension guidance.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.10 (the supported range is declared in `pyproject.toml`)
+- Python 3.10 (required by `pyproject.toml`)
 - [uv](https://docs.astral.sh/uv/)
-- Docker and Docker Compose
+- Docker with Docker Compose v2
+- Bash-compatible shell (Git Bash or WSL on Windows)
 
-### Setup
+### Install Python dependencies
 
 ```bash
-git clone https://github.com/dimasegaabirama/Fraud-Detection-Stream-Data-Pipeline.git
-cd Fraud-Detection-Stream-Data-Pipeline
 uv sync --group dev
 ```
 
-### Start the services
+### Configure and start infrastructure
+
+Create a local `.env` containing the environment variables required by the
+Docker Compose files. Do not commit this file.
 
 ```bash
 bash start-all.sh
 ```
 
-The service definitions are split under `docker/`; the startup script handles
-their dependency order. Use Git Bash or WSL on Windows to run the `.sh` scripts.
+The script starts Hadoop, Hive, Kafka, PostgreSQL, and Flink, and creates the
+external `hadoop_net` Docker network if it does not exist. Hive's metastore
+PostgreSQL uses host port `5432`; the separate application PostgreSQL container
+uses host port `5433`.
 
-### Entry point status
+> **Data warning:** `stop-all.sh` runs Compose with `down -v`. This removes the
+> Compose-managed volumes, including persisted service data.
+
+### Application entry point
 
 ```bash
 uv run python main.py
 ```
 
-`main.py` is currently a placeholder; the bootstrap, source/sink, and
-transformation modules are being assembled independently and are not yet wired
-into a complete streaming job.
+`main.py` is currently a placeholder and does not start the streaming pipeline.
 
-### Start all Docker services
-
-From the repository root, run:
+### Tests and lint
 
 ```bash
-bash start-all.sh
+uv run pytest
+uv run ruff check .
 ```
-
-The script starts Hadoop, Hive, Kafka, PostgreSQL, and Flink in dependency order.
-Hive exposes its metastore database on host port `5432`; the application
-PostgreSQL container exposes port `5433` to avoid a host-port collision.
-
-To stop all services without deleting volumes or the shared Docker network, run:
-
-```bash
-bash stop-all.sh
-```
-
-## Configuration
-
-Application configuration is loaded by `src/config/settings.py` from
-`src/config/config.yaml`, with environment variables and `.env` values taking
-precedence. Pydantic models for each section live beside it (`kafka.py`,
-`hadoop.py`, `hive.py`, `pipeline.py`, and `rules.py`). Fraud thresholds and
-score policy are configured in the YAML file; keep environment-specific
-secrets in `.env`, not in the checked-in YAML.
-
-### Aggregate score policy
-
-Each enabled rule contributes a score of `0`, `10`, `50`, or `80`. The scores
-are summed across the rules before determining the transaction status:
-
-| Total score | Status |
-|---:|---|
-| `0-49` | `allow` |
-| `50-99` | `otp` |
-| `100-149` | `review` |
-| `150+` | `block` |
-
-These limits are configured in `src/config/config.yaml` under `score_policy`.
-With the current five rules, the maximum possible aggregate score is `400`.
-
-## Sample Data
-
-`seed_transactions.sql` contains 200 sample transactions across 15 users. Rows `EVT00017`, `EVT00038`, `EVT00091`, `EVT00142`, and `EVT00173` are deliberate anomalies (large amount, new device, new IP, different location) to exercise the rules.
 
 ## Roadmap
 
-- [ ] Normalize amounts to a single reference currency before comparing with thresholds
-- [ ] Sliding window or OVER aggregation to remove window-boundary blind spots
-- [ ] Per-transaction-type threshold multipliers
-- [ ] Sequence rules (for example `TOP_UP` followed by a large `WITHDRAWAL`)
-- [ ] Alert deduplication
+- Wire the Kafka source, validation/normalization, fraud evaluation, and sinks
+  into a runnable Flink job.
+- Route invalid and duplicate events to configured side-output sinks.
+- Add end-to-end tests for the complete stream and its failure paths.
+- Finalize and test the state/window behavior for each configured rule.
+- Normalize transaction amounts to the configured base currency as part of the
+  processing flow.
 
 ## License
 
