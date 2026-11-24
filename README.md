@@ -8,10 +8,11 @@ The architecture uses Redis for blacklist and reference data, Hive with Apache I
 
 > **Development Status:** The project is under active development. Individual components, contracts, configurations, and integrations are being assembled, but the complete streaming orchestration is not yet wired into `main.py`. The architecture below represents the intended pipeline design, not a fully operational end-to-end implementation.
 
+## Pipeline Workflow
+![Pipeline](images/Pipeline.png)
+
 ## Architecture Overview
 
-
-## Pipeline Workflow
 
 ### 1. Transaction Ingestion
 
