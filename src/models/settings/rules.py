@@ -1,19 +1,25 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from src.models.threshold import ThresholdLevelScore
-from src.models.score import ScorePolicy
+from src.models.enums import Aggregation
 
 
 FactorMap = dict[str, dict[str, float]]
 
 
-class HardBlockConfig(BaseModel):
-    device_id: str
-    ip_address: str
-    user_id: str
+class RulePolicy(BaseModel):
+    otp: int
+    review: int
+    block: int
+
+    @model_validator(mode="after")
+    def _validate_order(self):
+        if not (self.otp < self.review < self.block):
+            raise ValueError("Threshold values must be ascending: allow < otp < review < block.")
+        return self
 
 
 class RuleConfig(BaseModel):
-    timeout_ms: int | None = 30_000
+    bucket_ms: int | None = 30_000
     threshold: ThresholdLevelScore
     factors: FactorMap | None = None
 
@@ -25,9 +31,8 @@ class AmountRuleConfig(BaseModel):
 
 
 class RulesSettings(BaseModel):
-    score_policy: ScorePolicy
-    hard_block: HardBlockConfig
-    amount: RuleConfig
+    rule_policy: RulePolicy
+    amount: AmountRuleConfig
     device: RuleConfig
     ip_address: RuleConfig
     speed: RuleConfig

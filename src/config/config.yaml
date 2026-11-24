@@ -76,30 +76,21 @@ api:
 
 # === RULES CONFIG ===
 rules:
-  # Total score = sum of all rule scores. Below `otp` -> allow.
-  score_policy:
+
+  rule_policy:
     otp: 50
     review: 100
     block: 150
 
-
-  hard_block:
-    device_id: device_blacklist
-    ip_address: ip_blacklist
-    user_id: frozen_accounts
-
-  # window_ms = sliding window (t - size, t], kept in Flink keyed state.
-  # factors multiply the thresholds: <1 stricter, >1 more lenient, missing = 1.0.
-
-  amount:                    # USD, per user_id; score = max(single, rolling)
-    single:                  # single transaction
+  amount:
+    single:
       window_ms: 86400000
       threshold:
         low:    {value: 1000, score: 10}
         medium: {value: 5000, score: 50}
         high:   {value: 8000, score: 80}
-    rolling:                    # sum over the window
-      window_ms: 86400000       # 24 hours
+    rolling:
+      window_ms: 86400000
       threshold:
         low:    {value: 3000,  score: 10}
         medium: {value: 10000, score: 50}
@@ -109,8 +100,8 @@ rules:
       segment: {business: 3.0}
       transaction_type: {refund: 0.8, cashout: 0.8, withdrawal: 0.8}
 
-  device:                       # distinct device_id per user_id
-    window_ms: 3600000          # 1 hour
+  device:
+    bucket_ms: 3600000
     threshold:
       low:    {value: 2, score: 10}
       medium: {value: 3, score: 50}
@@ -119,18 +110,18 @@ rules:
       direction: {in: 1.2}
       transaction_type: {refund: 0.8}
 
-  ip_address:                   # distinct ip_address per user_id
-    window_ms: 600000           # 10 minutes
+  ip_address:
+    bucket_ms: 600000           
     threshold:
       low:    {value: 2, score: 10}
       medium: {value: 4, score: 50}
       high:   {value: 6, score: 80}
     factors:
-      segment: {business: 1.5}  # offices share an IP (NAT)
+      segment: {business: 1.5}
       transaction_type: {cashout: 0.8, withdrawal: 0.8, transfer: 0.9, refund: 1.1, top_up: 1.1}
 
-  speed:                        # metric not defined yet, adjust to the real definition
-    window_ms: 60000
+  speed:
+    bucket_ms: 60000
     threshold:
       low:    {value: 2, score: 10}
       medium: {value: 4, score: 50}
@@ -138,7 +129,7 @@ rules:
     factors:
       segment: {business: 1.2, retail: 1.1}
 
-  velocity:                     # txn count, per user_id
+  velocity:
     window_ms: 60000
     threshold:
       low:    {value: 5,  score: 10}

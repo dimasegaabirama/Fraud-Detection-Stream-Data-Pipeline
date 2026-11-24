@@ -1,43 +1,50 @@
 from abc import ABC
 from copy import deepcopy
 
-from src.config.rules import FraudRule
+import math
+
 from src.config.settings import AppSettings
+
+from src.models.threshold import ThresholdLevelScore
+
 from src.models.enums import FraudType, ThresholdLevelType
-from src.models.threshold import FraudThreshold, ThresholdResult
+from src.models.rules import RuleResult
 
 
-class BaseRules(ABC):
+class BaseRules:
+
     def __init__(self, settings: AppSettings, fraud_type: FraudType):
         self.settings = settings.rules
-        self.rule_config = getattr(self.settings, fraud_type.value)
+        self.fraud_type = fraud_type
+        self.rule_config = getattr(self.settings, fraud_type).model_dump()
 
     def _calculate_multiplier(self, key_values: dict[str, str]) -> float:
         multiplier = 1.0
         for category, selected_value in key_values.items():
-            mapping = self.rule_config
+            mapping = self.rule_config.get("factors").get(category)
             if mapping is None:
-                raise ValueError(f"Unknown factor category: {category}")
+                raise KeyError(f"Unknown factor category: {category}")
 
-            factor = mapping.get(selected_value)
-            if factor is None:
-                raise ValueError(f"Unknown value '{selected_value}' for factor '{category}'")
+            factor = mapping.get(selected_value, 1.0)
             multiplier *= factor
 
         return multiplier
 
-    def _calculate_threshold(self, key_values: dict[str, str]) -> FraudThreshold:
-        threshold = deepcopy(self.rule.threshold)
+    def _calculate_threshold(self, multiplier: float, key_values: dict[str, str]) -> ThresholdLevelScore:
+        threshold = deepcopy(self.rule_config.get("threshold"))
+        if threshold is None:
+            raise KeyError(f"Threshold config is not found for fraud type : {self.fraud_type}")
+
         multiplier = self._calculate_multiplier(key_values)
 
-        for level in (threshold.low, threshold.medium, threshold.high):
-            level.value *= multiplier
+        for level in (threshold["low"], threshold["medium"], threshold["high"]):
+            level["value"] = round(level["value"] * multiplier, 2)
 
-        return threshold
+        return ThresholdLevelScore(**threshold)
 
     @staticmethod
     def _calculate_score(
-        value: float, threshold: FraudThreshold
+        value: float, threshold: ThresholdLevelScore
     ) -> tuple[int, int, ThresholdLevelType]:
         if value >= threshold.high.value:
             return threshold.high.score, threshold.high.value, ThresholdLevelType.HIGH
@@ -47,35 +54,35 @@ class BaseRules(ABC):
             return threshold.low.score, threshold.low.value, ThresholdLevelType.LOW
         return 0, 0, ThresholdLevelType.NONE
 
-    def get_score(self, value: float, **key_values: str) -> int:
-        selected_factors = key_values or self.key_values
-        threshold = self._calculate_threshold(selected_factors)
-        return self._calculate_score(value, threshold)
+    def get_result(self, value: float, **key_values: str) -> RuleResult:
+        base_multiplier = 1.0
+        base_score, _, _ = self._calculate_score(
+            value=value,
+            threshold=self._calculate_threshold(base_multiplier, key_values))
 
-    def get_result(self, value: float, **key_values: str) -> ThresholdResult:
         multiplier = self._calculate_multiplier(key_values)
-        threshold = self._calculate_threshold(key_values)
-        base_score, threshold_value, level = self._calculate_score(value, threshold)
+        threshold = self._calculate_threshold(multiplier, key_values)
 
-        return ThresholdResult(
-            type=self.fraud_type,
-            level=level,
-            threshold_value=threshold_value,
+        score, threshold_value, level = self._calculate_score(value, threshold)
+
+        return RuleResult(
+            fraud_type= self.fraud_type,
+            level = level,
             base_score=base_score,
-            factor=multiplier,
-            final_score=int(base_score),
+            multiplier=multiplier,
+            contribution_score=score,
+            observed_value=value,
+            threshold_value=threshold_value,
+            evidence=key_values
         )
 
 
 if __name__ == "__main__":
     rules = BaseRules(
         settings=AppSettings(),
-        fraud_type="amount",
-        segment="retail",
-        transaction_type="payment",
-        direction="out",
+        fraud_type="device"
     )
 
-    print(rules.get_score(100.0))
-    print(rules.key_select)
-    print(rules.rule)
+    print(rules.get_result(4, direction = "in", transaction_type = "withdraw"))
+
+

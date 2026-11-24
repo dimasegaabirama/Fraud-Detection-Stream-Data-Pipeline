@@ -7,15 +7,12 @@ from pyflink.datastream.state import MapStateDescriptor, ValueStateDescriptor
 
 from src.config.settings import AppSettings
 from src.models.enums import FraudType
-# from src.models.sink.fact_fraud_evaluations import FactFraudEvaluations
-# from src.models.sink.fraud_alerts import FraudAlerts
 
 from src.contracts.cleaned_events import CleanedTransaction
 from src.rules.base_rules import BaseRules
 
-from src.models.threshold import ThresholdLevel
-from src.models.score import ScoreResult
-from src.common.format import TIMESTAMP_FORMAT
+from src.models.enums import ThresholdLevelType
+from src.common.tags import FRAUD_ALERTS_TAG
 
 
 def haversine_km(lon1, lat1, lon2, lat2):
@@ -29,11 +26,11 @@ def haversine_km(lon1, lat1, lon2, lat2):
 
 class SpeedRules(KeyedProcessFunction):
 
-    type = FraudType.SPEED
+    fraud_type = FraudType.SPEED
 
     def __init__(self, settings: AppSettings):
         self.pipeline = settings.pipeline
-        self.rules = BaseRules(settings=settings, fraud_type=self.type)
+        self.rules = BaseRules(settings=settings, fraud_type=self.fraud_type)
 
     def open(self, runtime_context: RuntimeContext):
         self.last_point = runtime_context.get_map_state(
@@ -80,48 +77,12 @@ class SpeedRules(KeyedProcessFunction):
             self.last_point.put("timestamp", float(ts))
             self.last_trx.update(value["transaction_id"])
 
-        if result is None or result.level == ThresholdLevel.NONE:
+        if result is None or result.level == ThresholdLevelType.NONE:
             return
 
-        now_ms = ctx.timer_service().current_processing_time()
-        detected_at = pendulum.from_timestamp(now_ms / 1000).strftime(TIMESTAMP_FORMAT)
-
-        score_result = ScoreResult(
-
-        )
-
-        observed_value = round(speed_kmh, 4)
-        threshold_value = round(result.threshold_value, 4)
-        base_score = result.base_score
-        factor = round(result.factor, 4)
-        final_score = result.final_score
-
         yield (
-            FRAUD_RESULTS,
-            cleaned_txn.to_fraud_alerts()
+            FRAUD_ALERTS_TAG,
+            cleaned_txn
         )
 
-        yield FactFraudEvaluations(
-            alert_id=alert_id,
-            transaction_id=transaction_id,
-            user_id=value["user_id"],
-            fraud_type=FraudType.SPEED,
-            level=result.level,
-            observed_value=observed_value,
-            threshold_value=threshold_value,
-            base_score=base_score,
-            factor=factor,
-            final_score=final_score,
-            evidence={
-                "speed_kmh": round(speed_kmh, 4),
-                "distance_km": round(distance_km, 4),
-                "elapsed_seconds": round(elapsed_s, 2),
-                "segment": str(seg),
-            },
-            group_key=group_key,
-            day=event_dt.day,
-            month=event_dt.month,
-            year=event_dt.year,
-            event_time=event_dt,
-            detected_at=detected_at,
-        )
+        yield cleaned_txn.to_fact_fraud_evaluations(score_result=result)

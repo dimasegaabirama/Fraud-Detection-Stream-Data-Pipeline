@@ -78,5 +78,5 @@ class AppSettings(BaseSettings):
 
 if __name__ == "__main__":
     settings = AppSettings()
-    print(settings.sources)
+    print(settings.rules.speed)
 

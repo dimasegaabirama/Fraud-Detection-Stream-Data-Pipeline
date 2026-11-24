@@ -41,14 +41,11 @@ class TransactionType(str, Enum):
     REFUND = "refund"
 
 
-class FraudStatus(str, Enum):
+class FraudAction(str, Enum):
     ALLOW = "allow"
     OTP = "otp"
     BLOCK = "block"
     REVIEW = "review"
-
-
-RulesAction = FraudStatus
 
 
 class DeviceType(str, Enum):
@@ -81,3 +78,8 @@ class SchemaLevel(str, Enum):
     CATALOG = "catalog"
     DATABASE = "database"
     TABLE = "table"
+
+
+class BlacklistType(str, Enum):
+    USER_ID = "user_id"
+    IP_ADDRESS = "ip_address"
