@@ -77,6 +77,8 @@ api:
 # === RULES CONFIG ===
 rules:
 
+  global_window_ms: 3600000
+
   rule_policy:
     otp: 50
     review: 100
@@ -101,7 +103,7 @@ rules:
       transaction_type: {refund: 0.8, cashout: 0.8, withdrawal: 0.8}
 
   device:
-    bucket_ms: 3600000
+    window_ms: 3600000  # 1 Hour
     threshold:
       low:    {value: 2, score: 10}
       medium: {value: 3, score: 50}
@@ -111,7 +113,7 @@ rules:
       transaction_type: {refund: 0.8}
 
   ip_address:
-    bucket_ms: 600000           
+    window_ms: 600000   # 10 Minute
     threshold:
       low:    {value: 2, score: 10}
       medium: {value: 4, score: 50}
@@ -121,7 +123,6 @@ rules:
       transaction_type: {cashout: 0.8, withdrawal: 0.8, transfer: 0.9, refund: 1.1, top_up: 1.1}
 
   speed:
-    bucket_ms: 60000
     threshold:
       low:    {value: 2, score: 10}
       medium: {value: 4, score: 50}
@@ -130,7 +131,7 @@ rules:
       segment: {business: 1.2, retail: 1.1}
 
   velocity:
-    window_ms: 60000
+    window_ms: 60000   # 10 Minute
     threshold:
       low:    {value: 5,  score: 10}
       medium: {value: 10, score: 50}

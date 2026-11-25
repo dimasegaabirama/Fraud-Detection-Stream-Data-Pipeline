@@ -19,7 +19,7 @@ class RulePolicy(BaseModel):
 
 
 class RuleConfig(BaseModel):
-    bucket_ms: int | None = 30_000
+    window_ms: int | None = None
     threshold: ThresholdLevelScore
     factors: FactorMap | None = None
 
@@ -31,6 +31,7 @@ class AmountRuleConfig(BaseModel):
 
 
 class RulesSettings(BaseModel):
+    global_window_ms: int
     rule_policy: RulePolicy
     amount: AmountRuleConfig
     device: RuleConfig

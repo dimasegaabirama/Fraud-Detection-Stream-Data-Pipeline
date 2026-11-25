@@ -1,3 +1,3 @@
 import math
 
-ROUND_FN = {"sum": math.floor, "count": math.ceil}
+MAX_GLOBAL_WINDOW
