@@ -31,7 +31,8 @@ class AmountRuleConfig(BaseModel):
 
 
 class RulesSettings(BaseModel):
-    global_window_ms: int
+    global_window_size_ms: int
+    global_window_slide_ms: int
     rule_policy: RulePolicy
     amount: AmountRuleConfig
     device: RuleConfig

@@ -77,7 +77,8 @@ api:
 # === RULES CONFIG ===
 rules:
 
-  global_window_ms: 3600000
+  global_window_size_ms: 3600000
+  global_window_slide_ms: 
 
   rule_policy:
     otp: 50

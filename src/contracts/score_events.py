@@ -11,7 +11,7 @@ class FraudResult(BaseModel):
     rule_results: RuleResults
     final_score: float
     action: FraudAction
-    event_time: str
+    event_timestamp: str
     detected_at: str
 
 

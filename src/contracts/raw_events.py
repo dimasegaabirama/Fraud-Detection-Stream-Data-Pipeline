@@ -12,13 +12,13 @@ class Transaction(BaseModel):
     segment: str
     transaction_type: str
     direction: str
-    sender_account: str | None = None
-    receiver_account: str | None = None
+    sender_account: str
+    receiver_account: str
     merchant_id: str | None = None
     ip_address: str
     device_id: str
     device_type: str
-    latitude: str
-    longitude: str
+    latitude: float
+    longitude: float
     status: str
     event_timestamp: str

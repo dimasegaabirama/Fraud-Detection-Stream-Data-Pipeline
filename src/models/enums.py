@@ -45,6 +45,7 @@ class FraudAction(str, Enum):
     ALLOW = "allow"
     OTP = "otp"
     BLOCK = "block"
+    BLACKLIST = "blacklist"
     REVIEW = "review"
 
 
